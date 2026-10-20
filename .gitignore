@@ -1,0 +1,22 @@
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# Local state and secrets
+.env
+.env.*
+!.env.example
+.careflow-state.json
+.careflow-state.json.*
+.ring-tokens.json
+
+# CDK
+infra/cdk.out/
+infra/cdk.context.json
+
+# Editors / OS
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json

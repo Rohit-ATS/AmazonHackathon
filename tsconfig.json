@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    "paths": {
+      "@careflow/shared": ["./packages/shared/src/index.ts"],
+      "@careflow/ring": ["./packages/ring/src/index.ts"],
+      "@careflow/agent": ["./packages/agent/src/index.ts"],
+      "@careflow/consent-engine": ["./packages/consent-engine/src/index.ts"]
+    },
+    "baseUrl": "."
+  },
+  "include": ["packages/*/src/**/*.ts", "packages/*/test/**/*.ts", "services/*/src/**/*.ts", "services/*/test/**/*.ts", "scripts/**/*.ts", "infra/bin/**/*.ts", "infra/lib/**/*.ts"]
+}

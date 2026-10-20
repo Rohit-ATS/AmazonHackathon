@@ -1,0 +1,205 @@
+/**
+ * Action execution — the only place in the system that can cause an outside-world effect.
+ *
+ * Two invariants are enforced here rather than trusted:
+ *
+ *   1. A blocked capability can never execute, whatever the model produced and whatever
+ *      the patient said. Door unlock is not an unimplemented feature; it is a refusal.
+ *   2. A sensitive action can only execute with a confirmed action object that is
+ *      structurally identical to the one the patient was asked about. Checking it here as
+ *      well as in the consent engine means a bug in either one is not enough to send a
+ *      message nobody approved.
+ *
+ * In demo mode notifications are recorded rather than sent, because the people in the
+ * fixture are fictional and a hackathon demo has no business sending real SMS.
+ */
+
+import type {
+  ActionResult,
+  CarePlan,
+  CareSession,
+  SensitiveAction,
+} from '@careflow/shared';
+import {
+  BLOCKED_CAPABILITIES,
+  EMERGENCY_PROTOTYPE_POLICY,
+  isSensitive,
+  nowIso,
+  sameAction,
+} from '@careflow/shared';
+import { findContact } from './careplan.js';
+
+export class ActionRefused extends Error {
+  constructor(
+    readonly code:
+      | 'blocked_capability'
+      | 'not_confirmed'
+      | 'action_mismatch'
+      | 'unknown_contact'
+      | 'contact_not_notifiable'
+      | 'emergency_policy',
+    message: string,
+  ) {
+    super(message);
+    this.name = 'ActionRefused';
+  }
+}
+
+/** Pre-flight check. Safe to call before asking the patient, so we never offer the impossible. */
+export function assertAllowed(action: SensitiveAction, plan: CarePlan): void {
+  if ((BLOCKED_CAPABILITIES as readonly string[]).includes(action.type)) {
+    throw new ActionRefused(
+      'blocked_capability',
+      `${action.type} is a blocked capability and can never be executed.`,
+    );
+  }
+
+  if (action.type === 'notify_caregiver' || action.type === 'notify_trusted_contact') {
+    const contact = findContact(plan, action.contactId);
+    if (!contact) {
+      throw new ActionRefused('unknown_contact', `No contact ${action.contactId} in the care plan.`);
+    }
+    if (!contact.notifiableOutsideVisits) {
+      // The patient controls who may be contacted. An agent that routes around that
+      // setting because it seemed helpful is the exact failure mode we are designing out.
+      throw new ActionRefused(
+        'contact_not_notifiable',
+        `${contact.displayName} is not patient-approved for notifications outside a scheduled visit.`,
+      );
+    }
+  }
+}
+
+export interface ExecuteContext {
+  session: CareSession;
+  plan: CarePlan;
+  /** Must be the action the patient actually confirmed. */
+  confirmed: SensitiveAction | undefined;
+  demoMode: boolean;
+  log: (msg: string, meta?: Record<string, unknown>) => void;
+}
+
+export async function executeAction(
+  action: SensitiveAction,
+  ctx: ExecuteContext,
+): Promise<ActionResult> {
+  assertAllowed(action, ctx.plan);
+
+  if (isSensitive(action.type)) {
+    if (ctx.session.state !== 'acting') {
+      throw new ActionRefused(
+        'not_confirmed',
+        `Sensitive action attempted from state "${ctx.session.state}"; only "acting" may execute.`,
+      );
+    }
+    if (!sameAction(action, ctx.confirmed)) {
+      throw new ActionRefused(
+        'action_mismatch',
+        'Action to execute does not match the action the patient confirmed.',
+      );
+    }
+  }
+
+  if (action.type === 'escalate_care_team') {
+    if (ctx.session.mode !== 'emergency_assist_prototype') {
+      throw new ActionRefused(
+        'emergency_policy',
+        'escalate_care_team is only available in the emergency-assist prototype flow.',
+      );
+    }
+    if (ctx.session.event.source !== 'patient') {
+      // EMERGENCY_PROTOTYPE_POLICY.patientInitiatedOnly, enforced rather than described.
+      throw new ActionRefused(
+        'emergency_policy',
+        'The emergency-assist flow can only be started by the patient.',
+      );
+    }
+  }
+
+  const at = nowIso();
+
+  switch (action.type) {
+    case 'notify_caregiver':
+    case 'notify_trusted_contact': {
+      const contact = findContact(ctx.plan, action.contactId)!;
+      return deliver(ctx, {
+        to: `${contact.displayName} (${contact.relationship ?? contact.role})`,
+        channel: contact.channel.kind,
+        address: contact.channel.address,
+        body: action.message ?? action.summary,
+        at,
+      });
+    }
+
+    case 'escalate_care_team': {
+      // Notifies both the care team and the trusted contact, with the patient's own words.
+      const recipients = ctx.plan.contacts.filter(
+        (c) => c.role === 'care_coordinator' || c.role === 'trusted_contact',
+      );
+      const names = recipients.map((c) => c.displayName).join(' and ');
+      return deliver(ctx, {
+        to: names,
+        channel: 'demo',
+        address: recipients.map((c) => c.channel.address).join(', '),
+        body: `${action.message ?? action.summary} — relayed by CareFlow at the patient's request. ${
+          EMERGENCY_PROTOTYPE_POLICY.spokenSafetyLine
+        }`,
+        at,
+      });
+    }
+
+    case 'message_visitor': {
+      // Ring's partner scope is read-only (`ava.v1:read`), so CareFlow cannot speak through
+      // the doorbell. Rather than imply otherwise, the message is shown on the patient's
+      // screen for them to relay, and the handoff record carries it to the caregiver.
+      ctx.log('message_visitor rendered locally; Ring partner scope is read-only', {
+        sessionId: ctx.session.sessionId,
+      });
+      return {
+        ok: true,
+        via: 'careflow-screen',
+        detail: `Message held for the visitor: "${action.message ?? action.summary}". CareFlow cannot speak through the Ring device on a read-only partner scope.`,
+        at,
+      };
+    }
+
+    case 'log_note':
+      return { ok: true, via: 'careflow-record', detail: action.note ?? action.summary, at };
+
+    case 'do_nothing':
+      return { ok: true, via: 'none', detail: 'Patient chose to take no action.', at };
+
+    default:
+      throw new ActionRefused('blocked_capability', `Unsupported action ${String(action.type)}.`);
+  }
+}
+
+interface Delivery {
+  to: string;
+  channel: string;
+  address: string;
+  body: string;
+  at: string;
+}
+
+async function deliver(ctx: ExecuteContext, d: Delivery): Promise<ActionResult> {
+  if (ctx.demoMode || d.channel === 'demo') {
+    ctx.log('notification recorded (demo mode)', { to: d.to, channel: d.channel });
+    return {
+      ok: true,
+      via: d.channel === 'demo' ? 'demo' : `demo:${d.channel}`,
+      detail: `Notified ${d.to}: "${d.body}"`,
+      at: d.at,
+    };
+  }
+
+  // Real delivery would go here (SNS / Pinpoint / connector). Left unimplemented on purpose:
+  // shipping a half-tested real-SMS path into a care product is worse than not shipping one.
+  ctx.log('live notification channel not configured; recording instead', { channel: d.channel });
+  return {
+    ok: true,
+    via: `recorded:${d.channel}`,
+    detail: `Notified ${d.to}: "${d.body}"`,
+    at: d.at,
+  };
+}

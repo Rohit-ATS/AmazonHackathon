@@ -1,0 +1,106 @@
+{
+  "_comment": "Fictional demo data. CareFlow never contains real patient data - that is a submission requirement. Visit windows are stored both as local times of day and as demoOffsetMinutes relative to now. With CAREFLOW_DEMO_ANCHOR on (the default) the offsets win, so the scheduled visit is always genuinely happening at demo time and the timeline reads coherently whenever the video is recorded. Set CAREFLOW_DEMO_ANCHOR=false to use the fixed clock times instead.",
+  "patient": {
+    "patientId": "pat_eleanor",
+    "displayName": "Eleanor Reyes",
+    "preferredName": "Eleanor",
+    "preferences": {
+      "typicalReadyMinutes": 2,
+      "largeTextDefault": true,
+      "locale": "en-US"
+    },
+    "careContext": {
+      "situation": "Home after a short hospital stay; elevated home-health support for two weeks",
+      "homeSince": "2026-10-18",
+      "supportWindowDays": 14
+    }
+  },
+  "devices": [
+    {
+      "deviceId": "front-door-001",
+      "displayName": "Front door",
+      "kind": "doorbell"
+    },
+    {
+      "deviceId": "back-door-002",
+      "displayName": "Back door",
+      "kind": "camera"
+    }
+  ],
+  "contacts": [
+    {
+      "contactId": "con_jordan",
+      "displayName": "Jordan Mbeki",
+      "role": "caregiver",
+      "relationship": "Home-health nurse",
+      "channel": {
+        "kind": "demo",
+        "address": "jordan@example.invalid"
+      },
+      "notifiableOutsideVisits": true
+    },
+    {
+      "contactId": "con_maya",
+      "displayName": "Maya Reyes",
+      "role": "trusted_contact",
+      "relationship": "Daughter",
+      "channel": {
+        "kind": "demo",
+        "address": "+1-555-0100"
+      },
+      "notifiableOutsideVisits": true
+    },
+    {
+      "contactId": "con_coord",
+      "displayName": "Riverside Home Care",
+      "role": "care_coordinator",
+      "relationship": "Care agency",
+      "channel": {
+        "kind": "demo",
+        "address": "coordinator@example.invalid"
+      },
+      "notifiableOutsideVisits": false
+    }
+  ],
+  "visitTemplates": [
+    {
+      "visitId": "vis_morning_meds",
+      "contactId": "con_jordan",
+      "startTime": "09:30",
+      "endTime": "10:00",
+      "purpose": "Morning visit: medication organisation and check-in",
+      "deviceId": "front-door-001",
+      "status": "completed",
+      "demoOffsetMinutes": [
+        -300,
+        -270
+      ]
+    },
+    {
+      "visitId": "vis_afternoon_nursing",
+      "contactId": "con_jordan",
+      "startTime": "14:00",
+      "endTime": "14:30",
+      "purpose": "Scheduled nursing visit",
+      "deviceId": "front-door-001",
+      "status": "upcoming",
+      "demoOffsetMinutes": [
+        -10,
+        20
+      ]
+    },
+    {
+      "visitId": "vis_evening_support",
+      "contactId": "con_coord",
+      "startTime": "18:00",
+      "endTime": "18:30",
+      "purpose": "Evening support call-in",
+      "deviceId": "front-door-001",
+      "status": "upcoming",
+      "demoOffsetMinutes": [
+        360,
+        390
+      ]
+    }
+  ]
+}

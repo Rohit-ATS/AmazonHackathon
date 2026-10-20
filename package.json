@@ -1,0 +1,39 @@
+{
+  "name": "careflow",
+  "private": true,
+  "version": "0.1.0",
+  "description": "CareFlow: voice-first care access with Ring",
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "services/*",
+    "apps/*",
+    "infra"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev:api": "npm run dev -w @careflow/api",
+    "dev:web": "npm run dev -w @careflow/web",
+    "dev": "concurrently -n api,web -c cyan,magenta \"npm:dev:api\" \"npm:dev:web\"",
+    "demo:scheduled": "tsx scripts/demo-event.ts scheduled",
+    "demo:unexpected": "tsx scripts/demo-event.ts unexpected",
+    "demo:delivery": "tsx scripts/demo-event.ts delivery",
+    "ring:link": "tsx scripts/ring-link.ts",
+    "ring:devices": "tsx scripts/ring-devices.ts",
+    "seed": "tsx scripts/seed.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -b --pretty",
+    "deploy": "npm run deploy -w @careflow/infra",
+    "demo:story": "tsx scripts/demo-story.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "concurrently": "^9.1.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^5.0.5"
+  }
+}
