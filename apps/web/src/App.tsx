@@ -184,6 +184,12 @@ export function App() {
     [send, session],
   );
 
+  /** Send free text as a patient turn — the same path a spoken sentence takes. */
+  const onSay = useCallback(
+    (text: string) => void send(() => api.speak(session!.sessionId, text)),
+    [send, session],
+  );
+
   const onRepeat = useCallback(() => {
     if (latestAgentTurn) void voice.speak(latestAgentTurn.text);
   }, [latestAgentTurn, voice]);
@@ -277,6 +283,7 @@ export function App() {
             busy={busy}
             error={error}
             onChoose={onChoose}
+            onSay={onSay}
             onConfirm={onConfirm}
             onCancel={onCancel}
             onRepeat={onRepeat}
