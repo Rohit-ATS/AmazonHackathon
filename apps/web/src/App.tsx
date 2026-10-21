@@ -147,7 +147,12 @@ export function App() {
 
   const send = useCallback(
     async (call: () => Promise<{ session: CareSession; turn: unknown }>) => {
-      if (!session) return;
+      if (!session) {
+        // Silently doing nothing is the worst failure here: the patient presses Yes, the
+        // screen does not move, and they cannot tell whether it was sent.
+        setError('That conversation is no longer active. Nothing was sent.');
+        return;
+      }
       setBusy(true);
       setError(undefined);
       try {
