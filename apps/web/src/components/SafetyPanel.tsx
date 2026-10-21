@@ -9,8 +9,6 @@
 
 import type { SafetyPanel as SafetyPanelData } from '@careflow/shared';
 import type { Health } from '../lib/api.js';
-import { stagger } from '../lib/useReveal.js';
-import { Blob, Wave } from './Decor.js';
 
 interface Props {
   safety: SafetyPanelData | undefined;
@@ -28,7 +26,6 @@ export function SafetyPanel({ safety, health }: Props) {
   return (
     <>
       <section className="card" aria-labelledby="safety-heading" data-reveal="pop">
-        <Blob corner="tr" size="30%" />
         <header>
           <div>
             <div className="eyebrow">Read from the running service</div>
@@ -90,7 +87,6 @@ export function SafetyPanel({ safety, health }: Props) {
       </section>
 
       <section className="panel-dark" aria-labelledby="refusals-heading" data-reveal>
-        <Wave />
         <header style={{ marginBottom: '0.8rem' }}>
           <div className="eyebrow" style={{ color: 'var(--lime)' }}>
             Declared limits
@@ -102,8 +98,8 @@ export function SafetyPanel({ safety, health }: Props) {
           rejected from every state, after any confirmation, by two independent checks.
         </p>
         <div className="rows">
-          {safety.blockedCapabilities.map((capability, i) => (
-            <div className="row" key={capability} data-reveal style={stagger(i)}>
+          {safety.blockedCapabilities.map((capability) => (
+            <div className="row" key={capability} data-reveal>
               <span className="grow mono">{capability}</span>
               <span className="badge danger">always refused</span>
             </div>
