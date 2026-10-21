@@ -25,15 +25,22 @@ import { CaregiverDashboard } from './components/CaregiverDashboard.js';
 import { Timeline } from './components/Timeline.js';
 import { SafetyPanel } from './components/SafetyPanel.js';
 import { DemoStrip } from './components/DemoStrip.js';
+import { Dock } from './components/Dock.js';
+import {
+  PatientIcon,
+  CaregiverIcon,
+  TimelineIcon,
+  SafetyIcon,
+} from './components/icons.js';
 import { useReveal, useStuckHeader } from './lib/useReveal.js';
 
 type Tab = 'patient' | 'caregiver' | 'timeline' | 'safety';
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'patient', label: 'Patient' },
-  { id: 'caregiver', label: 'Caregiver' },
-  { id: 'timeline', label: 'Timeline' },
-  { id: 'safety', label: 'Safety' },
+const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
+  { id: 'patient', label: 'Patient', icon: <PatientIcon /> },
+  { id: 'caregiver', label: 'Caregiver', icon: <CaregiverIcon /> },
+  { id: 'timeline', label: 'Timeline', icon: <TimelineIcon /> },
+  { id: 'safety', label: 'Safety', icon: <SafetyIcon /> },
 ];
 
 /**
@@ -455,21 +462,13 @@ export function App() {
         </div>
       </header>
 
-      <nav className="tabs" role="tablist" aria-label="CareFlow screens">
-        {TABS.map((item) => (
-          <button
-            key={item.id}
-            className="tab"
-            role="tab"
-            id={`tab-${item.id}`}
-            aria-selected={tab === item.id}
-            aria-controls="main"
-            onClick={() => setTab(item.id)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </nav>
+      <Dock
+        items={TABS}
+        activeId={tab}
+        onSelect={(id) => setTab(id as Tab)}
+        label="CareFlow screens"
+        controls="main"
+      />
 
       <main id="main" role="tabpanel" aria-labelledby={`tab-${tab}`} tabIndex={-1}>
         {offline && (
