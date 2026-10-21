@@ -5,8 +5,28 @@
  * configuration. Nothing is hardcoded in the UI: a panel that claims a protection the
  * running service is not applying would be worse than no panel at all, and a judge may
  * well ask.
+ *
+ * Each setting is shown as a real control with all of its options visible and the current
+ * one marked, rather than a badge — so it is obvious what the alternatives are and which
+ * one is in force.
+ *
+ * Every option is also selectable rather than greyed out, and choosing an unavailable one
+ * explains why it is unavailable. That is deliberate on both counts:
+ *
+ *  - These are not preferences. "Automatic door unlock: disabled" is not something someone
+ *    switched off; it is a capability the API's consent gate and the open-source consent
+ *    engine both refuse from every state, after any confirmation. A control that appeared
+ *    to turn it on would be claiming something the server would refuse to do — and the
+ *    safety story is the part of this product that has to be true.
+ *  - A disabled control cannot take focus, so a keyboard or screen-reader user would never
+ *    learn the option exists. `aria-disabled` keeps it reachable and announced, and the
+ *    explanation is the response to activating it.
+ *
+ * Making any of these genuinely writable needs a write endpoint on the API — `/api/safety`
+ * is read-only today — which is the backend's to add, not this app's.
  */
 
+import { useState } from 'react';
 import type { SafetyPanel as SafetyPanelData } from '@careflow/shared';
 import type { Health } from '../lib/api.js';
 
@@ -15,13 +35,51 @@ interface Props {
   health: Health | undefined;
 }
 
+interface Choice {
+  value: string;
+  label: string;
+}
+
+const ON_OFF: Choice[] = [
+  { value: 'on', label: 'On' },
+  { value: 'off', label: 'Off' },
+];
+
+const ENABLED: Choice[] = [
+  { value: 'enabled', label: 'Enabled' },
+  { value: 'disabled', label: 'Disabled' },
+];
+
 export function SafetyPanel({ safety, health }: Props) {
+  // Which setting has its explanation open. One at a time: a panel where every row is
+  // expanded is just the wall of text this replaced.
+  const [explained, setExplained] = useState<string>();
+
   if (!safety)
     return (
       <section className="card">
         <p className="muted">Loading…</p>
       </section>
     );
+
+  const setting = (
+    id: string,
+    label: string,
+    choices: Choice[],
+    value: string,
+    why: string,
+  ) => (
+    <Setting
+      key={id}
+      id={id}
+      label={label}
+      choices={choices}
+      value={value}
+      why={why}
+      open={explained === id}
+      onOpen={() => setExplained(explained === id ? undefined : id)}
+    />
+  );
 
   return (
     <>
@@ -34,51 +92,98 @@ export function SafetyPanel({ safety, health }: Props) {
           <span className="badge ok">Live configuration</span>
         </header>
 
-        <dl className="kv">
-          <dt>Consent required before any sensitive action</dt>
-          <dd>
-            <span className="badge ok">
-              {safety.consentRequiredForSensitiveActions ? 'Yes' : 'No'}
-            </span>
-          </dd>
+        <div className="settings">
+          {setting(
+            'consent',
+            'Consent required before any sensitive action',
+            ON_OFF,
+            safety.consentRequiredForSensitiveActions ? 'on' : 'off',
+            'Consent is the product, not a preference. The API’s consent gate and the ' +
+              'open-source consent engine each reject any sensitive action that was not ' +
+              'explicitly approved, and they check independently — so there is no state in ' +
+              'which this can be off.',
+          )}
 
-          <dt>Medical advice</dt>
-          <dd>
-            <span className="badge danger">{safety.medicalAdvice}</span>
-          </dd>
+          {setting(
+            'advice',
+            'Medical advice',
+            ENABLED,
+            safety.medicalAdvice,
+            'CareFlow is not a medical device and offers no clinical opinion. Asked a ' +
+              'medical question, it says so and offers to pass the question to the care ' +
+              'team instead.',
+          )}
 
-          <dt>Medical diagnosis</dt>
-          <dd>
-            <span className="badge danger">{safety.medicalDiagnosis}</span>
-          </dd>
+          {setting(
+            'diagnosis',
+            'Medical diagnosis',
+            ENABLED,
+            safety.medicalDiagnosis,
+            'Same boundary as medical advice. Interpreting symptoms is a clinician’s job, ' +
+              'and a confident wrong answer here is the most harmful thing this product ' +
+              'could do.',
+          )}
 
-          <dt>Automatic door unlock</dt>
-          <dd>
-            <span className="badge danger">{safety.automaticDoorUnlock}</span>
-          </dd>
+          {setting(
+            'unlock',
+            'Automatic door unlock',
+            ENABLED,
+            safety.automaticDoorUnlock,
+            'There is nothing to switch on: CareFlow holds no door credentials at all. The ' +
+              'Ring scope it requests is read-only, so the inability to open your door is a ' +
+              'property of the integration rather than a setting on top of it.',
+          )}
 
-          <dt>Contacting emergency services</dt>
-          <dd>
-            <span className="badge danger">{safety.emergencyDispatch}</span>
-          </dd>
+          {setting(
+            'dispatch',
+            'Contacting emergency services',
+            ENABLED,
+            safety.emergencyDispatch,
+            'CareFlow never calls emergency services on someone’s behalf, and never decides ' +
+              'on its own that someone needs help. It can tell the care team, after the ' +
+              'patient has asked it to and confirmed.',
+          )}
 
-          <dt>Ring webhook signature verification</dt>
-          <dd>
-            <span className={`badge ${safety.webhookSignatureVerification === 'enforced' ? 'ok' : 'danger'}`}>
-              {safety.webhookSignatureVerification}
-            </span>
-          </dd>
+          {setting(
+            'signature',
+            'Ring webhook signature verification',
+            [
+              { value: 'enforced', label: 'Enforced' },
+              { value: 'disabled', label: 'Off' },
+            ],
+            safety.webhookSignatureVerification,
+            'Every delivery is checked against an HMAC-SHA256 signature over the raw body ' +
+              'bytes before anything is parsed; wrongly signed and unsigned deliveries are ' +
+              'rejected with 401. Turning this off would let anyone start a conversation ' +
+              'inside someone’s home.',
+          )}
 
-          <dt>Trusted contacts</dt>
-          <dd>
-            <span className="badge ok">{safety.trustedContacts}</span>
-          </dd>
+          {setting(
+            'contacts',
+            'Trusted contacts',
+            [
+              { value: 'patient-controlled', label: 'Patient-controlled' },
+              { value: 'agent-controlled', label: 'Agent-controlled' },
+            ],
+            safety.trustedContacts,
+            'The patient owns this list. A contact marked not-notifiable outside visit ' +
+              'hours is never contacted, and the agent cannot route around that — it is ' +
+              'enforced in the API, not left to the model’s judgement.',
+          )}
 
-          <dt>Data retention</dt>
-          <dd>
-            <span className="badge">{safety.dataRetention}</span>
-          </dd>
-        </dl>
+          {setting(
+            'retention',
+            'Data retention',
+            [
+              { value: 'demo-mode', label: 'Demo mode' },
+              { value: 'configured', label: 'Configured' },
+            ],
+            safety.dataRetention,
+            'Reported by the running service rather than chosen in the app. In demo mode ' +
+              'nothing is written to a durable store beyond the local state file, and the ' +
+              'contacts in this demo are fictional.',
+          )}
+        </div>
 
         <p className="small muted">
           CareFlow has no face recognition and does not identify who is at the door. It knows
@@ -115,28 +220,42 @@ export function SafetyPanel({ safety, health }: Props) {
           </div>
           <span className="badge warn">{safety.emergencyAssist.status}</span>
         </header>
-        <dl className="kv">
-          <dt>Started only by the patient</dt>
-          <dd>
-            <span className="badge ok">{yesNo(safety.emergencyAssist.patientInitiatedOnly)}</span>
-          </dd>
-          <dt>Always requires confirmation</dt>
-          <dd>
-            <span className="badge ok">{yesNo(safety.emergencyAssist.confirmationRequired)}</span>
-          </dd>
-          <dt>Contacts emergency services</dt>
-          <dd>
-            <span className="badge danger">
-              {yesNo(safety.emergencyAssist.contactsEmergencyServices)}
-            </span>
-          </dd>
-          <dt>Assesses medical severity</dt>
-          <dd>
-            <span className="badge danger">
-              {yesNo(safety.emergencyAssist.assessesMedicalSeverity)}
-            </span>
-          </dd>
-        </dl>
+
+        <div className="settings">
+          {setting(
+            'ea-patient',
+            'Started only by the patient',
+            ON_OFF,
+            safety.emergencyAssist.patientInitiatedOnly ? 'on' : 'off',
+            'CareFlow never starts this flow itself. Deciding that someone is in trouble is ' +
+              'exactly the judgement this product refuses to make.',
+          )}
+          {setting(
+            'ea-confirm',
+            'Always requires confirmation',
+            ON_OFF,
+            safety.emergencyAssist.confirmationRequired ? 'on' : 'off',
+            'Nothing is sent until the patient says yes, in the same consent gate every ' +
+              'other action passes through.',
+          )}
+          {setting(
+            'ea-dispatch',
+            'Contacts emergency services',
+            ON_OFF,
+            safety.emergencyAssist.contactsEmergencyServices ? 'on' : 'off',
+            'It does not, and the spoken line says so every time. Someone who needs an ' +
+              'ambulance must not be left believing an app has called one.',
+          )}
+          {setting(
+            'ea-severity',
+            'Assesses medical severity',
+            ON_OFF,
+            safety.emergencyAssist.assessesMedicalSeverity ? 'on' : 'off',
+            'No triage, no severity score, no judgement about how urgent this is. It relays ' +
+              'that the patient asked for help, and says that is all it did.',
+          )}
+        </div>
+
         <p className="small muted" style={{ marginBottom: 0 }}>
           Spoken on every emergency-assist turn: “{safety.emergencyAssist.spokenSafetyLine}”
         </p>
@@ -160,6 +279,7 @@ export function SafetyPanel({ safety, health }: Props) {
               <h2 id="runtime-heading">Running configuration</h2>
             </div>
           </header>
+          {/* Observations about the process, not settings — so these stay plain readouts. */}
           <dl className="kv">
             <dt>Storage</dt>
             <dd className="mono">{health.mode.storage}</dd>
@@ -191,6 +311,64 @@ export function SafetyPanel({ safety, health }: Props) {
   );
 }
 
-function yesNo(value: boolean): string {
-  return value ? 'Yes' : 'No';
+interface SettingProps {
+  id: string;
+  label: string;
+  choices: Choice[];
+  value: string;
+  why: string;
+  open: boolean;
+  onOpen: () => void;
+}
+
+/**
+ * One setting: its label, every option it has, and which one is in force.
+ *
+ * The options use `aria-disabled` rather than `disabled` so they stay focusable and are
+ * announced as unavailable — a `disabled` button is invisible to keyboard and screen-reader
+ * users, who would never discover the option exists. Activating an unavailable option opens
+ * the explanation rather than silently doing nothing.
+ */
+function Setting({ id, label, choices, value, why, open, onOpen }: SettingProps) {
+  return (
+    <div className="setting">
+      <div className="setting-head">
+        <span className="setting-label" id={`${id}-label`}>
+          {label}
+        </span>
+
+        <span className="segmented" role="group" aria-labelledby={`${id}-label`}>
+          {choices.map((choice) => {
+            const current = choice.value === value;
+            return (
+              <button
+                key={choice.value}
+                type="button"
+                className={`seg${current ? ' is-on' : ''}`}
+                aria-pressed={current}
+                aria-disabled={!current}
+                onClick={onOpen}
+                title={current ? 'In force now' : 'Not available — enforced by the service'}
+              >
+                {choice.label}
+              </button>
+            );
+          })}
+        </span>
+      </div>
+
+      <button className="lock-toggle" onClick={onOpen} aria-expanded={open} aria-controls={`${id}-why`}>
+        <span className="lock" aria-hidden="true">
+          🔒
+        </span>
+        {open ? 'Hide why' : 'Enforced by the service — why?'}
+      </button>
+
+      {open && (
+        <p className="setting-why" id={`${id}-why`}>
+          {why}
+        </p>
+      )}
+    </div>
+  );
 }
