@@ -86,9 +86,11 @@ export function PatientScreen({
         <div className="hero-label">
           {!session
             ? 'CareFlow'
-            : session.match.status === 'scheduled'
-              ? 'Scheduled visit'
-              : 'At your door'}
+            : session.mode === 'emergency_assist_prototype'
+              ? 'You asked for help'
+              : session.match.status === 'scheduled'
+                ? 'Scheduled visit'
+                : 'At your door'}
         </div>
         <h1 id="status-line">{statusLine(session, voice)}</h1>
         <p className="chat-sub">{statusSub(session, voice, plan)}</p>
@@ -153,7 +155,9 @@ export function PatientScreen({
         )}
 
         {/* The offered choices live in the thread, under the turn that offered them. The
-            buttons are the real interface, not a fallback for when speech fails. */}
+            buttons are the real interface, not a fallback for when speech fails. The
+            approval block does not: it sits below the thread, in a constant place, so it
+            cannot scroll out of view while someone is reading it. */}
         {options.length > 0 && !awaitingConfirmation && !closed && (
           <div className="chat-actions">
             {options.map((option, i) => (
@@ -169,29 +173,40 @@ export function PatientScreen({
           </div>
         )}
 
-        {awaitingConfirmation && session?.pendingAction && (
-          <div className="consent" aria-labelledby="consent-heading">
-            <div className="consent-label" id="consent-heading">
-              Your approval is needed
-            </div>
-            <div className="consent-action">CareFlow will {session.pendingAction.summary}.</div>
-            {session.pendingAction.message && (
-              <div className="small muted">Message: “{session.pendingAction.message}”</div>
-            )}
-            <div className="chat-actions">
-              <button className="btn yes big" onClick={() => onConfirm(true)} disabled={busy}>
-                Yes, do that
-              </button>
-              <button className="btn no big" onClick={() => onConfirm(false)} disabled={busy}>
-                No, don’t
-              </button>
-            </div>
-            <p className="small muted" style={{ margin: 0 }}>
-              Nothing has been sent yet. Nothing happens until you say yes.
-            </p>
-          </div>
-        )}
       </div>
+
+      {awaitingConfirmation && session?.pendingAction && (
+        <div className="consent" aria-labelledby="consent-heading">
+          <div className="consent-label" id="consent-heading">
+            Your approval is needed
+          </div>
+          <div className="consent-action">CareFlow will {session.pendingAction.summary}.</div>
+          {session.pendingAction.message && (
+            <div className="small muted">Message: “{session.pendingAction.message}”</div>
+          )}
+          <div className="chat-actions">
+            <button
+              type="button"
+              className="btn yes big"
+              onClick={() => onConfirm(true)}
+              disabled={busy}
+            >
+              Yes, do that
+            </button>
+            <button
+              type="button"
+              className="btn no big"
+              onClick={() => onConfirm(false)}
+              disabled={busy}
+            >
+              No, don’t
+            </button>
+          </div>
+          <p className="small muted" style={{ margin: 0 }}>
+            Nothing has been sent yet. Nothing happens until you say yes.
+          </p>
+        </div>
+      )}
 
       <div className="composer">
         <form className="composer-row" onSubmit={submit}>
