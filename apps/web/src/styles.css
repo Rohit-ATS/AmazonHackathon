@@ -327,53 +327,7 @@ main {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  min-height: min(44rem, calc(100vh - 13rem));
-}
-
-.chat-head {
-  position: relative;
-  border-radius: var(--r-lg);
-  padding: clamp(1.1rem, 2.2vw, 1.7rem);
-  padding-left: clamp(1.35rem, 2.5vw, 2rem);
-  background: var(--lime);
-  border: 1px solid var(--lime-deep);
-  color: var(--ink);
-  flex: none;
-}
-
-.chat-head::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 6px;
-  border-radius: var(--r-lg) 0 0 var(--r-lg);
-  background: var(--ink);
-}
-
-.chat-head.is-confirming,
-.chat-head.is-done {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--paper);
-}
-
-.chat-head.is-confirming::before,
-.chat-head.is-done::before {
-  background: var(--lime);
-}
-
-.chat-head h1 {
-  font-size: clamp(1.6rem, 1.1rem + 1.9vw, 2.5rem);
-  max-width: 22ch;
-}
-
-.chat-sub {
-  margin: 0.55rem 0 0;
-  font-size: clamp(0.98rem, 0.95rem + 0.2vw, 1.06rem);
-  max-width: 60ch;
-  opacity: 0.85;
+  min-height: min(46rem, calc(100vh - 11rem));
 }
 
 /* The thread. The only scrolling region on the screen. */
