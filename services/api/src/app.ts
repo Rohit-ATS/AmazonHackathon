@@ -210,8 +210,9 @@ function authorized(header: string | undefined, expected: string | undefined): b
 }
 
 function tokenAuthorized(token: string | undefined, expected: string | undefined): boolean {
-  if (!expected) return true;
-  if (!token) return false;
+  // Unlike the general local API mode, linking an external account must always fail
+  // closed: without a configured secret there is no authorized person to bind it to.
+  if (!expected || !token) return false;
   const supplied = Buffer.from(token);
   const wanted = Buffer.from(expected);
   return supplied.length === wanted.length && timingSafeEqual(supplied, wanted);
@@ -291,7 +292,10 @@ async function ringLink(ctx: AppContext, req: AppRequest): Promise<AppResponse> 
     formToken = parseJsonBody<{ apiToken?: string }>(req).apiToken;
   }
 
-  if (!authorized(req.headers.authorization, ctx.config.apiAuthToken)
+  const bearerToken = req.headers.authorization?.startsWith('Bearer ')
+    ? req.headers.authorization.slice(7)
+    : undefined;
+  if (!tokenAuthorized(bearerToken, ctx.config.apiAuthToken)
       && !tokenAuthorized(formToken, ctx.config.apiAuthToken)) {
     return {
       status: 401,

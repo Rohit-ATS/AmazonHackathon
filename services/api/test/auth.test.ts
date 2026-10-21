@@ -87,6 +87,20 @@ describe('API authentication boundary', () => {
     expect(new URL(authorizedLink.headers.location!).host).toBe('account.ring.com');
   });
 
+  it('fails Ring account linking closed when no API token is configured', async () => {
+    const result = await handleRequest({
+      ...context,
+      config: { ...context.config, apiAuthToken: undefined },
+    } as AppContext, {
+      method: 'POST',
+      path: '/ring/link',
+      query: {},
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      rawBody: Buffer.from('apiToken=anything'),
+    });
+    expect(result.status).toBe(401);
+  });
+
   it('keeps the Ring OAuth callback public for the provider redirect', async () => {
     const result = await handleRequest(context, {
       ...request('/ring/oauth/callback'),
