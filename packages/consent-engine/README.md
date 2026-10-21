@@ -30,7 +30,7 @@ Ring, care, or voice, so it works for any agent that can act on someone's behalf
 import { createConsentMachine } from 'careflow-consent-engine';
 
 const machine = createConsentMachine({
-  blockedActions: ['unlock_door', 'medical_advice'],  // never, in any state
+  blockedActions: ['delete_account'],                 // add app-specific refusals
   confirmationTtlMs: 60_000,
   actor: 'user:123',
 });
@@ -100,6 +100,10 @@ Each of these has a test that would fail if the property were only a convention.
 `state`, `pendingAction`, `confirmedAction`, and `options` are readonly properties.
 Reading `state` or `pendingAction` also expires a stale confirmation, so they never report
 a pending action that is no longer valid.
+
+`unlock_door`, `disarm_alarm`, `medical_advice`, and `emergency_dispatch` are always
+blocked. `blockedActions` adds application-specific refusals; it cannot disable the built-in
+safety boundary.
 
 ## Stateless servers
 

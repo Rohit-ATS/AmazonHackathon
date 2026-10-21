@@ -25,7 +25,11 @@
  *   machine.complete({ ok: true });      // -> done
  */
 
-export { createConsentMachine, DEFAULT_CONFIRMATION_TTL_MS } from './machine.js';
+export {
+  createConsentMachine,
+  DEFAULT_BLOCKED_ACTIONS,
+  DEFAULT_CONFIRMATION_TTL_MS,
+} from './machine.js';
 export type { ConsentMachine, MachineSnapshot } from './machine.js';
 export { ConsentStateError } from './types.js';
 export type {

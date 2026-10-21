@@ -177,6 +177,19 @@ describe('a repeated confirmation is not a second send', () => {
 describe('blocked actions are refused in every state', () => {
   const unlock: ActionDescriptor = { id: 'unlock_door', label: 'Unlock the door', sensitive: true };
 
+  it.each(BLOCKED)('refuses %s by default, without relying on caller configuration', (actionId) => {
+    const m = createConsentMachine();
+    const verdict = m.can(actionId);
+    expect(verdict.allowed).toBe(false);
+    expect(verdict.reason).toMatch(/blocked capability/);
+  });
+
+  it('treats configured blocked actions as additions, not replacements', () => {
+    const m = createConsentMachine({ blockedActions: ['delete_account'] });
+    expect(m.can('delete_account').allowed).toBe(false);
+    expect(m.can('unlock_door').allowed).toBe(false);
+  });
+
   it('reports why, without mutating state', () => {
     const m = machine();
     const verdict = m.can('unlock_door');
@@ -219,15 +232,20 @@ describe('blocked actions are refused in every state', () => {
   });
 
   it('is refused at the moment of consent if the blocklist changed', () => {
+    const deleteAccount: ActionDescriptor = {
+      id: 'delete_account',
+      label: 'Delete the account',
+      sensitive: true,
+    };
     const snapshot = (() => {
       const permissive = createConsentMachine({ blockedActions: [] });
       permissive.observe();
-      permissive.offer([unlock]);
-      permissive.choose(unlock.id);
+      permissive.offer([deleteAccount]);
+      permissive.choose(deleteAccount.id);
       return permissive.snapshot();
     })();
 
-    const strict = createConsentMachine({ blockedActions: BLOCKED }, snapshot);
+    const strict = createConsentMachine({ blockedActions: ['delete_account'] }, snapshot);
     expect(() => strict.confirm(true)).toThrow(/blocked capability/);
     expect(strict.state).toBe('cancelled');
   });
@@ -336,14 +354,31 @@ describe('history is an append-only audit trail', () => {
 
   it('cannot be edited from outside', () => {
     const m = machine();
-    m.observe();
+    m.observe({ id: 'evt-123', detail: { device: { name: 'Front Door' } } });
     const stolen = m.history();
     (stolen as unknown as unknown[]).push({ seq: 99, type: 'confirmed' });
     (stolen[0] as { type: string }).type = 'tampered';
+    const detail = stolen[0]?.detail as { device: { name: string } };
+    detail.device.name = 'tampered';
 
     // An audit trail a caller can rewrite is not an audit trail.
     expect(m.history()).toHaveLength(1);
     expect(m.history()[0]?.type).toBe('observed');
+    expect(m.history()[0]?.detail).toEqual({
+      eventId: 'evt-123',
+      device: { name: 'Front Door' },
+    });
+  });
+
+  it('does not retain mutable history references from a rehydration snapshot', () => {
+    const original = machine();
+    original.observe({ detail: { source: { trusted: true } } });
+    const snapshot = original.snapshot();
+    const revived = createConsentMachine({}, snapshot);
+
+    (snapshot.history[0]!.detail!.source as { trusted: boolean }).trusted = false;
+
+    expect(revived.history()[0]?.detail).toEqual({ source: { trusted: true } });
   });
 
   it('records a decline distinctly from a cancellation', () => {
