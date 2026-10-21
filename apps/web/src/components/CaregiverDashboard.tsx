@@ -10,6 +10,7 @@
  * a different and much more dangerous product.
  */
 
+import { useState } from 'react';
 import type { CarePlan, CareSession } from '@careflow/shared';
 
 interface Props {
@@ -20,73 +21,83 @@ interface Props {
 }
 
 export function CaregiverDashboard({ plan, sessions, activeSessionId, onSelectSession }: Props) {
-  const active = sessions.find((s) => s.sessionId === activeSessionId) ?? sessions[0];
-  const withHandoff = sessions.filter((s) => s.handoff);
+  // Whose day you are looking at. Undefined is the whole team, which is the honest default
+  // — nobody should have to pick a person before they can see what is happening.
+  const [whoId, setWhoId] = useState<string>();
+
+  const team = plan?.contacts ?? [];
+  const who = team.find((c) => c.contactId === whoId);
+
+  // Filtering is real: visits carry a contactId and sessions carry the contact they
+  // matched, so choosing a person narrows the schedule and the handoffs to theirs.
+  const visits = (plan?.visits ?? []).filter((v) => !whoId || v.contactId === whoId);
+  const forWho = whoId
+    ? sessions.filter((s) => s.match.contact?.contactId === whoId)
+    : sessions;
+
+  const active = forWho.find((s) => s.sessionId === activeSessionId) ?? forWho[0];
+  const withHandoff = forWho.filter((s) => s.handoff);
 
   return (
     <>
-      <section className="panel-dark" aria-labelledby="patient-heading" data-reveal="pop">
-        <header
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'baseline',
-            flexWrap: 'wrap',
-            gap: '0.6rem',
-          }}
-        >
-          <div className="eyebrow" style={{ color: 'var(--lime)' }}>
-            Under your care
-          </div>
-          <span className="badge">Demo data · fictional</span>
-        </header>
-        {plan ? (
-          <>
-            <h2
-              id="patient-heading"
-              style={{ fontSize: 'clamp(1.8rem, 1.2rem + 2.4vw, 3rem)', marginTop: '0.4rem' }}
-            >
-              {plan.patient.displayName}
-            </h2>
-            {plan.patient.careContext && (
-              <p className="muted" style={{ margin: '0.6rem 0 0', maxWidth: '52ch' }}>
+      <section className="care-head" aria-labelledby="patient-heading" data-reveal="pop">
+        <div className="care-id">
+          <span className="care-avatar" aria-hidden="true">
+            {initials(plan?.patient.displayName)}
+          </span>
+          <div className="care-id-text">
+            <div className="eyebrow">Under your care</div>
+            <h2 id="patient-heading">{plan?.patient.displayName ?? 'Loading…'}</h2>
+            {plan?.patient.careContext && (
+              <p className="care-context">
                 {plan.patient.careContext.situation}
                 {plan.patient.careContext.homeSince && (
                   <> · home since {formatDate(plan.patient.careContext.homeSince)}</>
                 )}
               </p>
             )}
-            <div
-              style={{
-                display: 'grid',
-                // Narrower track than .grid-2 so the two figures sit side by side inside
-                // the panel rather than stacking.
-                gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 9rem), auto))',
-                gap: '1.6rem 2.6rem',
-                marginTop: '1.8rem',
-                justifyContent: 'start',
-              }}
+          </div>
+
+          <div className="care-figures">
+            <span className="care-figure">
+              <strong>{visits.length}</strong> {visits.length === 1 ? 'visit' : 'visits'} today
+            </span>
+            <span className="care-figure">
+              <strong>{withHandoff.length}</strong>{' '}
+              {withHandoff.length === 1 ? 'handoff note' : 'handoff notes'}
+            </span>
+            <span className="badge">Demo data · fictional</span>
+          </div>
+        </div>
+
+        {/*
+          * The care team, as a filter. Choosing someone narrows the schedule, the active
+          * event and the handoffs to them — it is a real filter over real data, not a
+          * decorative picker, so a name with nothing today says so plainly.
+          */}
+        {team.length > 0 && (
+          <div className="care-switch" role="group" aria-label="Whose day to show">
+            <button
+              type="button"
+              className={`seg${whoId === undefined ? ' is-on' : ''}`}
+              aria-pressed={whoId === undefined}
+              onClick={() => setWhoId(undefined)}
             >
-              <div className="stat">
-                <span className="value" style={{ color: 'var(--lime)' }}>
-                  {plan.visits.length}
-                </span>
-                <span className="label" style={{ color: 'rgb(255 255 255 / 62%)' }}>
-                  visits scheduled today
-                </span>
-              </div>
-              <div className="stat">
-                <span className="value" style={{ color: 'var(--lime)' }}>
-                  {sessions.filter((s) => s.handoff).length}
-                </span>
-                <span className="label" style={{ color: 'rgb(255 255 255 / 62%)' }}>
-                  handoff notes waiting
-                </span>
-              </div>
-            </div>
-          </>
-        ) : (
-          <p className="muted">Loading…</p>
+              Whole team
+            </button>
+            {team.map((contact) => (
+              <button
+                key={contact.contactId}
+                type="button"
+                className={`seg${whoId === contact.contactId ? ' is-on' : ''}`}
+                aria-pressed={whoId === contact.contactId}
+                onClick={() => setWhoId(contact.contactId)}
+                title={contact.relationship ?? contact.role}
+              >
+                {contact.displayName}
+              </button>
+            ))}
+          </div>
         )}
       </section>
 
@@ -98,8 +109,8 @@ export function CaregiverDashboard({ plan, sessions, activeSessionId, onSelectSe
           </div>
         </header>
         <div className="rows">
-          {plan?.visits.map((visit, i) => {
-            const contact = plan.contacts.find((c) => c.contactId === visit.contactId);
+          {visits.map((visit) => {
+            const contact = team.find((c) => c.contactId === visit.contactId);
             const arrived = sessions.some(
               (s) => s.match.visit?.visitId === visit.visitId && s.state === 'done',
             );
@@ -118,7 +129,11 @@ export function CaregiverDashboard({ plan, sessions, activeSessionId, onSelectSe
               </div>
             );
           })}
-          {plan?.visits.length === 0 && <p className="muted">No visits scheduled today.</p>}
+          {visits.length === 0 && (
+            <p className="muted">
+              {who ? `No visits for ${who.displayName} today.` : 'No visits scheduled today.'}
+            </p>
+          )}
         </div>
       </section>
 
@@ -255,4 +270,11 @@ function formatTime(iso: string): string {
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+}
+
+/** Initials for the patient mark: two letters, or one for a single-word name. */
+function initials(name: string | undefined): string {
+  if (!name) return '–';
+  const parts = name.trim().split(/\s+/);
+  return (parts[0]![0]! + (parts.length > 1 ? parts[parts.length - 1]![0]! : '')).toUpperCase();
 }
