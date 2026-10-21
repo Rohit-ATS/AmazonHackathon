@@ -668,6 +668,20 @@ main {
   background: var(--ink);
   flex: none;
   z-index: 1;
+
+  /* The kind modifier comes from server data (entry.kind), so it can collide with a
+     component class of the same name — `.consent` did exactly that, and its padding
+     inflated this 0.85rem dot into a disc that covered the entry's own text. The
+     modifiers are namespaced `.k-*` now, and these resets make the dot immune to any
+     bare class that lands on it in future. */
+  padding: 0;
+  overflow: visible;
+  box-shadow: none;
+}
+
+.timeline .dot::after,
+.timeline .dot::before {
+  content: none;
 }
 
 .timeline li:not(:last-child) .rail::after {
@@ -679,21 +693,21 @@ main {
   background: var(--line);
 }
 
-.timeline .dot.ring_event {
+.timeline .dot.k-ring_event {
   background: var(--lime);
   box-shadow: inset 0 0 0 2px var(--ink);
 }
-.timeline .dot.ai_decision {
+.timeline .dot.k-ai_decision {
   background: var(--ink);
 }
-.timeline .dot.consent,
-.timeline .dot.action {
+.timeline .dot.k-consent,
+.timeline .dot.k-action {
   background: var(--lime);
 }
-.timeline .dot.refusal {
+.timeline .dot.k-refusal {
   background: var(--coral);
 }
-.timeline .dot.patient_choice {
+.timeline .dot.k-patient_choice {
   background: var(--paper);
   box-shadow: inset 0 0 0 2.5px var(--ink);
 }
