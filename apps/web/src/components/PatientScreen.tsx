@@ -1,14 +1,17 @@
 /**
  * The patient screen.
  *
- * Styled as the hero block from the reference design: a big lime panel with the status in
- * heavy display type, a hand-drawn arrow, and pill buttons. The visual language is borrowed
- * wholesale; the accessibility rules underneath it are not negotiable:
+ * Laid out as one working surface, not a stack: status, approval and every control sit in
+ * the left column, the conversation in the right. Nothing the patient might need is below
+ * the fold — someone deciding whether to let a stranger in should never have to scroll to
+ * find "no". The columns collapse to one at narrow widths and at large text sizes.
+ *
+ * The accessibility rules underneath are not negotiable:
  *
  *  - One status line, large, readable across a room.
  *  - One question at a time, with the choices as buttons. Speech is an accelerator, never a
  *    requirement — recognition fails on accents, in noise, and on exactly these voices.
- *  - When consent is pending the panel flips to black and states plainly what is about to
+ *  - When consent is pending the panel turns dark teal and states plainly what is about to
  *    happen, with Yes and No. A judge has to be able to *see* consent, not take our word.
  *  - The transcript is an aria-live region, so a screen reader announces the agent's turn.
  */
@@ -16,8 +19,6 @@
 import { useEffect, useRef } from 'react';
 import type { AgentTurn, CarePlan, CareSession } from '@careflow/shared';
 import type { VoiceState } from '../lib/useVoice.js';
-import { stagger } from '../lib/useReveal.js';
-import { Blob, Scribble } from './Decor.js';
 
 interface Props {
   session: CareSession | undefined;
@@ -68,8 +69,9 @@ export function PatientScreen({
         : '';
 
   return (
-    <>
-      <section className={`hero ${heroTone}`} aria-labelledby="status-line" data-reveal="pop">
+    <div className="patient-grid">
+      <div className="patient-col">
+        <section className={`hero ${heroTone}`} aria-labelledby="status-line" data-reveal="pop">
         <div className="hero-label">
           {!session ? 'CareFlow' : session.match.status === 'scheduled' ? 'Scheduled visit' : 'At your door'}
         </div>
@@ -105,7 +107,6 @@ export function PatientScreen({
           </button>
         </div>
 
-        <Scribble />
       </section>
 
       {error && (
@@ -142,8 +143,65 @@ export function PatientScreen({
         </section>
       )}
 
-      <section className="card" aria-labelledby="transcript-heading" data-reveal>
-        <Blob corner="tr" size="30%" />
+        <section className="card plain" aria-labelledby="controls-heading" data-reveal>
+        <header>
+          <div>
+            <div className="eyebrow">Your choices</div>
+            <h2 id="controls-heading">What would you like to do?</h2>
+          </div>
+          {voice.voiceSource && (
+            <span className="badge" title="Where the spoken voice comes from">
+              Voice: {voice.voiceSource === 'polly' ? 'Amazon Polly' : 'browser'}
+            </span>
+          )}
+        </header>
+
+        {!voice.recognitionAvailable && (
+          <p className="small muted" style={{ marginTop: 0 }}>
+            This browser cannot listen, so use the buttons. Everything CareFlow can do is
+            available here.
+          </p>
+        )}
+
+        {/* The buttons are the real interface, not a fallback for when speech fails. */}
+        {options.length > 0 && !awaitingConfirmation && (
+          <div className="hero-actions" style={{ marginTop: 0 }}>
+            {options.map((option, i) => (
+              <button
+                key={option.actionId}
+                className={`btn ${i === 0 ? 'lime' : ''}`}
+                onClick={() => onChoose(option.actionId)}
+                disabled={busy}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <hr style={{ border: 0, borderTop: '1px solid var(--line)', margin: '1.4rem 0' }} />
+
+        <div className="hero-actions" style={{ marginTop: 0 }}>
+          <button className="btn" onClick={onAskForHelp} disabled={busy}>
+            I need help
+          </button>
+          <button
+            className="btn ghost"
+            onClick={onCancel}
+            disabled={busy || !session || state === 'done' || state === 'cancelled'}
+          >
+            Cancel
+          </button>
+        </div>
+        <p className="small muted" style={{ marginBottom: 0 }}>
+          “I need help” tells your care team you need them. It does not contact emergency
+          services — for an emergency, call them directly.
+        </p>
+      </section>
+      </div>
+
+      <div className="patient-col">
+        <section className="card" aria-labelledby="transcript-heading" data-reveal>
         <header>
           <div>
             <div className="eyebrow">Live</div>
@@ -189,65 +247,8 @@ export function PatientScreen({
           )}
         </div>
       </section>
-
-      <section className="card plain" aria-labelledby="controls-heading" data-reveal>
-        <header>
-          <div>
-            <div className="eyebrow">Your choices</div>
-            <h2 id="controls-heading">What would you like to do?</h2>
-          </div>
-          {voice.voiceSource && (
-            <span className="badge" title="Where the spoken voice comes from">
-              Voice: {voice.voiceSource === 'polly' ? 'Amazon Polly' : 'browser'}
-            </span>
-          )}
-        </header>
-
-        {!voice.recognitionAvailable && (
-          <p className="small muted" style={{ marginTop: 0 }}>
-            This browser cannot listen, so use the buttons. Everything CareFlow can do is
-            available here.
-          </p>
-        )}
-
-        {/* The buttons are the real interface, not a fallback for when speech fails. */}
-        {options.length > 0 && !awaitingConfirmation && (
-          <div className="hero-actions" style={{ marginTop: 0 }}>
-            {options.map((option, i) => (
-              <button
-                key={option.actionId}
-                className={`btn ${i === 0 ? 'lime' : ''}`}
-                onClick={() => onChoose(option.actionId)}
-                disabled={busy}
-                data-reveal
-                style={stagger(i)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <hr style={{ border: 0, borderTop: '1px solid var(--line)', margin: '1.4rem 0' }} />
-
-        <div className="hero-actions" style={{ marginTop: 0 }}>
-          <button className="btn" onClick={onAskForHelp} disabled={busy}>
-            I need help
-          </button>
-          <button
-            className="btn ghost"
-            onClick={onCancel}
-            disabled={busy || !session || state === 'done' || state === 'cancelled'}
-          >
-            Cancel
-          </button>
-        </div>
-        <p className="small muted" style={{ marginBottom: 0 }}>
-          “I need help” tells your care team you need them. It does not contact emergency
-          services — for an emergency, call them directly.
-        </p>
-      </section>
-    </>
+      </div>
+    </div>
   );
 }
 
