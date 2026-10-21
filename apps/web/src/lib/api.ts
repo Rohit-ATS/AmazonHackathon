@@ -63,6 +63,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     } catch {
       // Not JSON; keep the raw text.
     }
+    if (message.trim().startsWith('<') || message.includes('<html')) {
+      message = `Server returned HTTP ${res.status} (${res.statusText || 'Error'}). The backend API is unreachable or returned an unexpected page.`;
+    }
     throw new ApiError(res.status, code, message);
   }
 
@@ -149,16 +152,21 @@ export const api = {
    * no AWS credentials at all.
    */
   async tts(text: string): Promise<Blob | undefined> {
+    if (!API_BASE) return undefined;
     const token = sessionStorage.getItem('careflow.apiToken');
-    const res = await fetch(apiEndpoint('/api/tts'), {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        ...(token ? { authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({ text }),
-    });
-    if (res.status === 204 || !res.ok) return undefined;
-    return res.blob();
+    try {
+      const res = await fetch(apiEndpoint('/api/tts'), {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ text }),
+      });
+      if (res.status === 204 || !res.ok) return undefined;
+      return res.blob();
+    } catch {
+      return undefined;
+    }
   },
 };

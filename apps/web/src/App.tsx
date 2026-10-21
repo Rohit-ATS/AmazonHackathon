@@ -11,6 +11,7 @@ import type { CarePlan, CareSession, SafetyPanel as SafetyPanelData } from '@car
 import { api, ApiError, setApiToken, type Health, type McpPendingApproval } from './lib/api.js';
 import { useLive } from './lib/useLive.js';
 import {
+  createOfflineEmergencySession,
   isOfflineMode,
   OFFLINE_CARE_PLAN,
   OFFLINE_HEALTH,
@@ -208,24 +209,138 @@ export function App() {
   );
 
   const onChoose = useCallback(
-    (actionId: string) => void send(() => api.choose(session!.sessionId, actionId)),
-    [send, session],
+    (actionId: string) => {
+      if (offline && session) {
+        const chosen = (session.options ?? []).find((o) => o.actionId === actionId);
+        const at = new Date().toISOString();
+        const updatedTurns = [
+          ...session.turns,
+          {
+            turnId: `turn_offline_pat_${Date.now()}`,
+            speaker: 'patient' as const,
+            text: chosen?.label ?? actionId,
+            at,
+          },
+          {
+            turnId: `turn_offline_agent_${Date.now()}`,
+            speaker: 'agent' as const,
+            text: `Understood: ${chosen?.label ?? actionId}. (Preview mode demo)`,
+            at,
+            engine: 'scripted' as const,
+          },
+        ];
+        const next: CareSession = {
+          ...session,
+          state: 'done',
+          options: [],
+          turns: updatedTurns,
+          updatedAt: at,
+        };
+        applySession(next);
+        return;
+      }
+      return void send(() => api.choose(session!.sessionId, actionId));
+    },
+    [send, session, offline, applySession],
   );
 
   const onConfirm = useCallback(
-    (affirmative: boolean) => void send(() => api.confirm(session!.sessionId, affirmative)),
-    [send, session],
+    (affirmative: boolean) => {
+      if (offline && session) {
+        const at = new Date().toISOString();
+        const updatedTurns = [
+          ...session.turns,
+          {
+            turnId: `turn_offline_pat_${Date.now()}`,
+            speaker: 'patient' as const,
+            text: affirmative ? 'Yes, do that' : 'No, don’t',
+            at,
+          },
+          {
+            turnId: `turn_offline_agent_${Date.now()}`,
+            speaker: 'agent' as const,
+            text: affirmative
+              ? 'Understood. I have notified your care team that you need help. Someone will reach out shortly.'
+              : 'Okay, I won’t do anything. I am here if you need me.',
+            at,
+            engine: 'scripted' as const,
+          },
+        ];
+        const next: CareSession = {
+          ...session,
+          state: affirmative ? 'done' : 'cancelled',
+          pendingAction: undefined,
+          options: [],
+          turns: updatedTurns,
+          updatedAt: at,
+        };
+        applySession(next);
+        return;
+      }
+      return void send(() => api.confirm(session!.sessionId, affirmative));
+    },
+    [send, session, offline, applySession],
   );
 
-  const onCancel = useCallback(
-    () => void send(() => api.cancel(session!.sessionId)),
-    [send, session],
-  );
+  const onCancel = useCallback(() => {
+    if (offline && session) {
+      const at = new Date().toISOString();
+      const updatedTurns = [
+        ...session.turns,
+        {
+          turnId: `turn_offline_agent_${Date.now()}`,
+          speaker: 'agent' as const,
+          text: 'Okay, I won’t do anything. I am here if you change your mind.',
+          at,
+          engine: 'scripted' as const,
+        },
+      ];
+      const next: CareSession = {
+        ...session,
+        state: 'cancelled',
+        pendingAction: undefined,
+        options: [],
+        turns: updatedTurns,
+        updatedAt: at,
+      };
+      applySession(next);
+      return;
+    }
+    return void send(() => api.cancel(session!.sessionId));
+  }, [send, session, offline, applySession]);
 
   /** Send free text as a patient turn — the same path a spoken sentence takes. */
   const onSay = useCallback(
-    (text: string) => void send(() => api.speak(session!.sessionId, text)),
-    [send, session],
+    (text: string) => {
+      if (offline && session) {
+        const at = new Date().toISOString();
+        const updatedTurns = [
+          ...session.turns,
+          {
+            turnId: `turn_offline_pat_${Date.now()}`,
+            speaker: 'patient' as const,
+            text,
+            at,
+          },
+          {
+            turnId: `turn_offline_agent_${Date.now()}`,
+            speaker: 'agent' as const,
+            text: `I received: "${text}". Full AI responses are active once connected to the backend API.`,
+            at,
+            engine: 'scripted' as const,
+          },
+        ];
+        const next: CareSession = {
+          ...session,
+          turns: updatedTurns,
+          updatedAt: at,
+        };
+        applySession(next);
+        return;
+      }
+      return void send(() => api.speak(session!.sessionId, text));
+    },
+    [send, session, offline, applySession],
   );
 
   const onRepeat = useCallback(() => {
@@ -233,8 +348,14 @@ export function App() {
   }, [latestAgentTurn, voice]);
 
   const onAskForHelp = useCallback(async () => {
-    setBusy(true);
     setError(undefined);
+    if (offline) {
+      const emergencySession = createOfflineEmergencySession();
+      applySession(emergencySession);
+      setTab('patient');
+      return;
+    }
+    setBusy(true);
     try {
       const result = await api.startEmergencyAssist();
       applySession(result.session);
@@ -244,7 +365,7 @@ export function App() {
     } finally {
       setBusy(false);
     }
-  }, [applySession]);
+  }, [applySession, offline]);
 
   const onMcpApproval = useCallback(async (item: McpPendingApproval, affirmative: boolean) => {
     setBusy(true);

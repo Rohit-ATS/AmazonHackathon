@@ -11,6 +11,7 @@
  */
 
 import type {
+  AuditRecord,
   CarePlan,
   CareSession,
   SafetyPanel,
@@ -268,6 +269,87 @@ export const OFFLINE_SESSIONS: CareSession[] = [
     },
   } as unknown as CareSession,
 ];
+
+// ---------------------------------------------------------------------------
+// Sample audit records
+// ---------------------------------------------------------------------------
+
+export const OFFLINE_AUDIT: AuditRecord[] = [
+  {
+    auditId: 'aud_1',
+    sessionId: 'offline_session_1',
+    at: new Date(Date.now() - 5 * 3_600_000).toISOString(),
+    actor: 'ring',
+    event: 'doorbell_press',
+  },
+  {
+    auditId: 'aud_2',
+    sessionId: 'offline_session_1',
+    at: new Date(Date.now() - 4.95 * 3_600_000).toISOString(),
+    actor: 'patient',
+    event: 'patient_choice:ready',
+  },
+  {
+    auditId: 'aud_3',
+    sessionId: 'offline_session_1',
+    at: new Date(Date.now() - 4.9 * 3_600_000).toISOString(),
+    actor: 'careflow',
+    event: 'action_executed:notify_caregiver',
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Emergency-assist prototype session generator
+// ---------------------------------------------------------------------------
+
+export function createOfflineEmergencySession(): CareSession {
+  const at = new Date().toISOString();
+  return {
+    sessionId: `offline_emergency_${Date.now()}`,
+    mode: 'emergency_assist_prototype',
+    event: {
+      eventId: `evt_offline_help_${Date.now()}`,
+      deviceId: 'careflow-app',
+      deviceName: 'CareFlow app',
+      kind: 'patient_request',
+      occurredAt: at,
+      source: 'patient',
+    },
+    match: {
+      status: 'not_applicable',
+      confidence: 1,
+      minutesFromWindow: 0,
+      reason: 'Patient asked for help.',
+    },
+    state: 'awaiting_confirmation',
+    pendingAction: {
+      type: 'escalate_care_team',
+      summary: 'tell Jordan Mbeki and Maya Reyes that you need help',
+      message: 'The patient used the help button.',
+      note: 'Emergency-assist prototype. Patient requested care team contact.',
+    },
+    turns: [
+      {
+        turnId: `turn_emergency_${Date.now()}`,
+        speaker: 'agent',
+        text: "I'm an AI assistant, not a medical professional. I can help coordinate care and contact your care team. I cannot contact emergency services — for an emergency, call 911 directly. Would you like me to tell your care team now?",
+        at,
+        engine: 'scripted',
+        options: [
+          { actionId: 'confirm_yes', label: 'Yes, tell my care team' },
+          { actionId: 'confirm_no', label: 'No, not now' },
+        ],
+      },
+    ],
+    options: [
+      { actionId: 'confirm_yes', label: 'Yes, tell my care team' },
+      { actionId: 'confirm_no', label: 'No, not now' },
+    ],
+    results: [],
+    createdAt: at,
+    updatedAt: at,
+  } as unknown as CareSession;
+}
 
 // ---------------------------------------------------------------------------
 // Detection helper

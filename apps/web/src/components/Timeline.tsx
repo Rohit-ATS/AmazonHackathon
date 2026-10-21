@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react';
 import type { AuditRecord, CareSession, TimelineEntry } from '@careflow/shared';
 import { api } from '../lib/api.js';
+import { isOfflineMode, OFFLINE_AUDIT } from '../lib/offlineStub.js';
 
 interface Props {
   timeline: TimelineEntry[];
@@ -37,6 +38,10 @@ export function Timeline({ timeline, session }: Props) {
   const sessionId = session?.sessionId;
 
   useEffect(() => {
+    if (isOfflineMode()) {
+      setAudit(OFFLINE_AUDIT);
+      return;
+    }
     if (!sessionId) {
       setAudit([]);
       return;

@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AgentTurn, CareSession, TimelineEntry } from '@careflow/shared';
 import { api, apiEndpoint } from './api.js';
+import { isOfflineMode } from './offlineStub.js';
 
 export type ConnectionState = 'connecting' | 'live' | 'polling';
 
@@ -44,6 +45,7 @@ export function useLive(): LiveState {
   }, []);
 
   const refresh = useCallback(async () => {
+    if (isOfflineMode()) return;
     const [sessions, entries] = await Promise.all([api.sessions(10), api.timeline(60)]);
     setTimeline(entries);
 
@@ -72,6 +74,10 @@ export function useLive(): LiveState {
 
   // --- SSE, with polling as the fallback ---------------------------------
   useEffect(() => {
+    if (isOfflineMode()) {
+      setConnection('live');
+      return;
+    }
     let source: EventSource | undefined;
     let poll: ReturnType<typeof setInterval> | undefined;
     let cancelled = false;
