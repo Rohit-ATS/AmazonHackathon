@@ -362,9 +362,22 @@ main {
   min-height: min(46rem, calc(100vh - 11rem));
 }
 
+/*
+ * Wraps the thread so the listening panel can cover exactly the conversation — not the
+ * whole page. Covering the page made the screen change shape around the patient; covering
+ * the thread leaves every landmark where it was.
+ */
+.chat-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
 /* The thread. The only scrolling region on the screen. */
 .chat-log {
   flex: 1;
+  width: 100%;
   /*
    * `min-height: 0` is what actually makes this scroll. A flex item defaults to
    * `min-height: auto`, which refuses to shrink below its content — so `overflow-y` never
@@ -443,6 +456,30 @@ main {
   border-radius: var(--r-lg);
   background: var(--paper);
   border: 1px solid var(--line);
+
+  /* max-height is the only height a grid of unknown content can be transitioned from. */
+  max-height: 24rem;
+  overflow: hidden;
+  transform-origin: 50% 100%;
+  transition: max-height 320ms var(--ease), opacity 220ms var(--ease),
+    padding 320ms var(--ease), transform 320ms var(--ease), border-color 220ms var(--ease),
+    visibility 0s linear 320ms;
+}
+
+/*
+ * Folded away while the microphone is open. `visibility: hidden` lands after the collapse
+ * so the controls leave the tab order rather than staying focusable inside a zero-height
+ * box — a keyboard user tabbing into an invisible text field is worse than no animation.
+ */
+.composer.is-hidden {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-color: transparent;
+  transform: scaleY(0.92);
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .composer-row {
@@ -666,18 +703,6 @@ main {
 
 /* Recording. A deep red rather than the old coral, which was too light to carry white type
    at anything like an accessible contrast. */
-.btn.listening {
-  background: var(--coral);
-  border-color: var(--coral);
-  color: var(--ink);
-  animation: pulse 1.6s ease-in-out infinite;
-}
-
-.btn.listening:hover:not(:disabled) {
-  color: var(--ink);
-  border-color: var(--coral);
-}
-
 @keyframes pulse {
   50% {
     box-shadow: 0 0 0 12px rgb(255 107 94 / 18%);
@@ -760,22 +785,43 @@ main {
  * cannot read a small "listening" label this is the whole message.
  */
 .listening {
-  position: fixed;
+  position: absolute;
   inset: 0;
-  z-index: 60;
+  z-index: 2;
   display: grid;
   place-content: center;
   justify-items: center;
-  gap: 1.4rem;
-  padding: 2rem;
-  background: rgb(12 13 12 / 92%);
+  gap: 1.3rem;
+  padding: 1.5rem;
+  border-radius: var(--r-lg);
+  background: rgb(12 13 12 / 94%);
   backdrop-filter: blur(6px);
-  animation: listening-in 200ms var(--ease);
+  animation: listening-in 260ms var(--ease) both;
 }
 
 @keyframes listening-in {
   from {
     opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+/*
+ * The orb's own transform is reserved for loudness, so the entrance pop lives on this
+ * wrapper. Two animations on one transform would fight, and the voice would lose.
+ */
+.listening-orb {
+  animation: orb-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes orb-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
@@ -1464,5 +1510,16 @@ button.row:hover {
   [data-reveal] {
     opacity: 1;
     transform: none;
+  }
+
+  /* The orb still answers the voice and the bar still gets out of the way; neither
+     travels to do it. */
+  .listening-orb,
+  .listening {
+    animation: none;
+  }
+
+  .composer {
+    transition: none;
   }
 }
