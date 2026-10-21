@@ -34,6 +34,20 @@ import {
 
 export const DEFAULT_CONFIRMATION_TTL_MS = 60_000;
 
+/**
+ * Capabilities this package refuses even when the caller supplies no configuration.
+ *
+ * `blockedActions` extends this list; it cannot remove entries from it. These are safety
+ * boundaries, not application preferences, so a missed environment variable or a stale
+ * snapshot must not make them available.
+ */
+export const DEFAULT_BLOCKED_ACTIONS = Object.freeze([
+  'unlock_door',
+  'disarm_alarm',
+  'medical_advice',
+  'emergency_dispatch',
+] as const);
+
 export interface ConsentMachine<TPayload = unknown> {
   readonly state: ConsentState;
   /** The action awaiting confirmation, frozen. Undefined unless awaiting confirmation. */
@@ -79,7 +93,7 @@ export function createConsentMachine<TPayload = unknown>(
   config: ConsentConfig = {},
   snapshot?: MachineSnapshot<TPayload>,
 ): ConsentMachine<TPayload> {
-  const blocked = new Set(config.blockedActions ?? []);
+  const blocked = new Set<string>([...DEFAULT_BLOCKED_ACTIONS, ...(config.blockedActions ?? [])]);
   const ttl = config.confirmationTtlMs ?? DEFAULT_CONFIRMATION_TTL_MS;
   const now = config.now ?? (() => Date.now());
 
@@ -88,7 +102,9 @@ export function createConsentMachine<TPayload = unknown>(
   let pendingAction = snapshot?.pendingAction ? freeze(snapshot.pendingAction) : undefined;
   let confirmedAction = snapshot?.confirmedAction ? freeze(snapshot.confirmedAction) : undefined;
   let pendingSince = snapshot?.pendingSince;
-  const log: HistoryEntry[] = [...(snapshot?.history ?? [])];
+  // A snapshot is caller-owned input. Clone it so mutating the object used to rehydrate a
+  // machine cannot rewrite that machine's audit trail afterwards.
+  const log: HistoryEntry[] = (snapshot?.history ?? []).map(clone);
 
   function record(
     type: HistoryEventType,
@@ -178,9 +194,14 @@ export function createConsentMachine<TPayload = unknown>(
       confirmedAction = undefined;
       pendingSince = undefined;
       record('observed', from, state, {
-        ...(event?.id !== undefined ? { actionId: undefined } : {}),
-        ...(event?.detail || event?.kind
-          ? { detail: { ...(event.detail ?? {}), ...(event.kind ? { kind: event.kind } : {}) } }
+        ...(event?.id || event?.detail || event?.kind
+          ? {
+              detail: {
+                ...(event.detail ?? {}),
+                ...(event.id ? { eventId: event.id } : {}),
+                ...(event.kind ? { kind: event.kind } : {}),
+              },
+            }
           : {}),
       });
       return state;
@@ -351,8 +372,8 @@ export function createConsentMachine<TPayload = unknown>(
     },
 
     history() {
-      // A copy: the audit trail is append-only from the outside.
-      return log.map((entry) => ({ ...entry }));
+      // Deep copies: nested detail must be just as append-only as the top-level entry.
+      return log.map(clone);
     },
 
     snapshot() {
@@ -363,7 +384,7 @@ export function createConsentMachine<TPayload = unknown>(
         ...(pendingAction ? { pendingAction: clone(pendingAction) } : {}),
         ...(confirmedAction ? { confirmedAction: clone(confirmedAction) } : {}),
         ...(pendingSince !== undefined ? { pendingSince } : {}),
-        history: log.map((entry) => ({ ...entry })),
+        history: log.map(clone),
       };
     },
   };
