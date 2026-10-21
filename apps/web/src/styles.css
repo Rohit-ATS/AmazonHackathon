@@ -234,42 +234,96 @@ button {
   gap: 0.5rem;
 }
 
-/* ------------------------------------------------------------------- nav tabs */
+/* ------------------------------------------------------------------- nav dock */
 
-.tabs {
+/*
+ * The section bar as a magnifying dock. Items grow toward the pointer, the one under it
+ * leading; `--mag` is written straight onto each element by the component, so the whole
+ * effect is one compositor-friendly transform per item and no React render per mousemove.
+ *
+ * The base item is 48px, the floor this product holds every control to, and it only ever
+ * grows from there — the magnification is decoration on top of a target that is already
+ * big enough to hit without it.
+ */
+
+.dock-wrap {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
+  justify-content: center;
   padding: 0.85rem clamp(1rem, 3vw, 2.5rem) 0;
-  max-width: 78rem;
-  margin: 0 auto;
-  width: 100%;
 }
 
-.tab {
+.dock {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.35rem;
+  padding: 0.4rem;
+  border-radius: var(--r-lg);
+  background: var(--mist);
+  border: 1px solid var(--line);
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.dock::-webkit-scrollbar {
+  display: none;
+}
+
+.dock-item {
+  --mag: 0;
   position: relative;
+  flex: none;
+  display: grid;
+  justify-items: center;
+  gap: 0.15rem;
+  min-width: 48px;
   min-height: 48px;
-  padding: 0 1.1rem;
-  border: 1px solid transparent;
-  border-radius: var(--pill);
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-radius: var(--r);
   background: transparent;
   color: var(--text-muted);
   font-weight: 600;
-  font-size: 0.95rem;
-  transition: color 160ms var(--ease), background-color 160ms var(--ease),
-    border-color 160ms var(--ease);
+  font-size: 0.82rem;
+  transform: scale(calc(1 + var(--mag))) translateY(calc(var(--mag) * -5px));
+  transform-origin: 50% 100%;
+  transition: transform 220ms var(--ease), background-color 160ms var(--ease),
+    color 160ms var(--ease);
 }
 
-.tab:hover {
-  background: var(--mist-2);
-  border-color: var(--line);
+.dock-item:hover {
   color: var(--text);
 }
 
-.tab[aria-selected='true'] {
+.dock-item.is-selected {
   background: var(--ink);
-  border-color: var(--ink);
   color: var(--paper);
+}
+
+.dock-icon {
+  display: grid;
+  place-items: center;
+  line-height: 0;
+}
+
+/*
+ * The label stays on screen rather than appearing only on hover. The reference reveals it
+ * as a tooltip, which is fine for an app dock full of familiar icons and wrong for
+ * navigation in a care product: a bar whose meaning is available only to a mouse excludes
+ * touch and keyboard users, and four unexplained glyphs are a guessing game for exactly
+ * the people this is built for.
+ */
+.dock-label {
+  font-size: 0.78rem;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dock-item {
+    transform: none;
+    transition: background-color 160ms linear, color 160ms linear;
+  }
 }
 
 main {
