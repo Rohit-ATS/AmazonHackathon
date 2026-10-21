@@ -33,7 +33,20 @@ const MEDICAL = [
   /\b(blood pressure|blood sugar|heart rate) (reading|is|was)\b/i,
 ];
 
-const DOOR = [/\b(unlock|open|let .* in|buzz .* in|disarm)\b.*\b(door|them|him|her|lock|alarm)\b/i, /\bopen the door\b/i];
+/**
+ * Door and alarm control.
+ *
+ * Each pattern stands alone rather than requiring a trailing object, because the most
+ * natural phrasings are the shortest ones — "let them in", "unlock it" — and an earlier
+ * version that insisted on a word after the verb missed exactly those.
+ */
+const DOOR = [
+  /\b(unlock|unlatch|unbolt)\b/i,
+  /\bopen (the |that )?(door|gate|front|back)\b/i,
+  /\b(let|buzz|wave|bring|show)\s+(them|him|her|it|that person|the nurse|people)?\s*(in|inside|through)\b/i,
+  /\b(disarm|deactivate)\b.*\b(alarm|system)\b/i,
+  /\bturn (off|the alarm off)\b.*\balarm\b/i,
+];
 
 const EMERGENCY_CLAIM = [/\b(call|dial) (911|999|112|emergency)\b/i, /\bambulance\b/i, /\bparamedic/i];
 

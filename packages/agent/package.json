@@ -9,6 +9,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.712.0",
     "@careflow/consent-engine": "*",
     "@careflow/shared": "*"
   }

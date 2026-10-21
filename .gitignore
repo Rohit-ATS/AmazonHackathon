@@ -20,3 +20,4 @@ infra/cdk.context.json
 Thumbs.db
 .vscode/*
 !.vscode/extensions.json
+.gstack/

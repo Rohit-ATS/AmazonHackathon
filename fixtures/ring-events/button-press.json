@@ -1,0 +1,24 @@
+{
+  "meta": {
+    "version": "1.1",
+    "time": "2026-10-21T14:14:00.000Z",
+    "request_id": "req_button_press_demo",
+    "account_id": "acct_careflow_demo"
+  },
+  "data": {
+    "id": "front-door-001_button_press_1792592040000",
+    "type": "button_press",
+    "attributes": {
+      "source": "front-door-001",
+      "source_type": "devices",
+      "timestamp": 1792592040000
+    }
+  },
+  "relationships": {
+    "devices": {
+      "links": {
+        "self": "/v1/devices/front-door-001"
+      }
+    }
+  }
+}

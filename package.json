@@ -25,9 +25,10 @@
     "ring:devices": "tsx scripts/ring-devices.ts",
     "seed": "tsx scripts/seed.ts",
     "test": "vitest run",
-    "typecheck": "tsc -b --pretty",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p apps/web/tsconfig.json --noEmit",
     "deploy": "npm run deploy -w @careflow/infra",
-    "demo:story": "tsx scripts/demo-story.ts"
+    "demo:story": "tsx scripts/demo-story.ts",
+    "build": "npm run build -w @careflow/web"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

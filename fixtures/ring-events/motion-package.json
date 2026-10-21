@@ -1,0 +1,26 @@
+{
+  "meta": {
+    "version": "1.1",
+    "time": "2026-10-21T14:14:00.000Z",
+    "request_id": "req_motion_package_demo",
+    "account_id": "acct_careflow_demo"
+  },
+  "data": {
+    "id": "front-door-001_motion_1792592040000",
+    "type": "motion_detected",
+    "attributes": {
+      "source": "front-door-001",
+      "source_type": "devices",
+      "timestamp": 1792592040000,
+      "timestamp_readable": "2026-10-21T14:14:00.000Z",
+      "sub_type": "package"
+    }
+  },
+  "relationships": {
+    "devices": {
+      "links": {
+        "self": "/v1/devices/front-door-001"
+      }
+    }
+  }
+}

@@ -36,6 +36,8 @@ import {
   sameAction,
 } from '@careflow/shared';
 import { isPatientFacing, normalizeRingEvent } from '@careflow/ring';
+import { ConsentStateError, type MachineSnapshot } from '@careflow/consent-engine';
+import { createMachine, toDescriptor } from './consent.js';
 import { ActionRefused, assertAllowed, executeAction } from './actions.js';
 import type { Bus } from './bus.js';
 import { matchVisit } from './match.js';
@@ -157,6 +159,16 @@ export class SessionService {
       createdAt: nowIso(),
       updatedAt: nowIso(),
     };
+
+    // Open the consent machine on the event itself, so its audit trail starts where the
+    // session does rather than at the first action.
+    const machine = createMachine(session.sessionId);
+    machine.observe({
+      id: event.eventId,
+      kind: event.kind,
+      detail: { deviceId: event.deviceId, requestId: event.requestId, source: event.source },
+    });
+    session.consent = machine.snapshot();
 
     await this.deps.store.saveSession(session);
     await this.deps.store.appendAudit({
@@ -286,6 +298,35 @@ export class SessionService {
     if (turn.disclosure || opts.requireDisclosure) agentTurn.disclosure = true;
     session.turns.push(agentTurn);
 
+    // The consent engine, rehydrated from the session. It runs the same rules
+    // independently of the checks below — see lib/consent.ts for why the redundancy is
+    // deliberate rather than wasteful.
+    const machine = createMachine(
+      session.sessionId,
+      session.consent as MachineSnapshot<SensitiveAction> | undefined,
+    );
+
+    try {
+      // A confirmation answer moves the machine first, so that an expired or already-
+      // answered confirmation is caught before anything looks at the proposed action.
+      if (opts.confirmedAffirmative !== undefined && machine.state === 'awaiting_confirmation') {
+        machine.confirm(opts.confirmedAffirmative);
+      }
+
+      // An action proposed this turn has to be offered and chosen before it can be
+      // confirmed. `choose` requires an exact id, so an action the agent invented on the
+      // spot cannot slip through.
+      const proposed = turn.pendingAction ?? (opts.confirmedAffirmative === undefined ? turn.executeAction : undefined);
+      if (proposed) {
+        const descriptor = toDescriptor(proposed);
+        machine.offer([descriptor]);
+        machine.choose(descriptor.id);
+      }
+    } catch (err) {
+      session.consent = machine.snapshot();
+      return this.refuse(session, turn, err, previousState);
+    }
+
     if (turn.pendingAction) {
       try {
         // Check before offering, so the patient is never asked to approve something that
@@ -293,6 +334,7 @@ export class SessionService {
         assertAllowed(turn.pendingAction, await this.deps.getCarePlan());
         session.pendingAction = turn.pendingAction;
       } catch (err) {
+        session.consent = machine.snapshot();
         return this.refuse(session, turn, err, previousState);
       }
     }
@@ -302,12 +344,32 @@ export class SessionService {
     if (executed) {
       const violation = this.checkExecutionAllowed(executed, session, previousState, opts);
       if (violation) {
+        session.consent = machine.snapshot();
         return this.refuse(session, turn, new ActionRefused(violation.code, violation.message), previousState);
+      }
+
+      // Second, independent check: the engine refuses unless this exact descriptor —
+      // payload included — is the one it saw confirmed, and unless it is in `acting`.
+      try {
+        machine.assertExecutable(toDescriptor(executed));
+      } catch (err) {
+        this.deps.log('consent engine refused an execution the domain gate allowed', {
+          sessionId: session.sessionId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        session.consent = machine.snapshot();
+        return this.refuse(
+          session,
+          turn,
+          new ActionRefused('not_confirmed', err instanceof Error ? err.message : String(err)),
+          previousState,
+        );
       }
     }
 
     session.state = turn.state;
     session.updatedAt = nowIso();
+    if (turn.options) session.options = turn.options;
 
     if (executed) {
       session.confirmedAction = session.pendingAction ?? executed;
@@ -324,6 +386,7 @@ export class SessionService {
         return this.refuse(session, turn, err, previousState);
       }
 
+      machine.complete({ ok: result.ok, detail: result.detail });
       session.results.push(result);
       session.state = 'done';
       session.handoff = buildHandoff(session, executed);
@@ -348,6 +411,7 @@ export class SessionService {
       });
     }
 
+    session.consent = machine.snapshot();
     await this.deps.store.saveSession(session);
     if (previousState !== session.state) {
       await this.deps.store.appendAudit({
@@ -411,8 +475,11 @@ export class SessionService {
     err: unknown,
     previousState: ConsentState,
   ): Promise<CareSession> {
-    const refusal = err instanceof ActionRefused ? err : undefined;
-    const code = refusal?.code ?? 'unknown';
+    // Refusals arrive from two places: the domain gate (ActionRefused) and the consent
+    // engine (ConsentStateError). Normalize both, because what the patient hears has to
+    // match the actual reason — telling someone "I didn't have your approval" when the
+    // truth is "I can't do that at all" is a small lie that erodes the whole product.
+    const code = refusalCode(err);
     const message = err instanceof Error ? err.message : String(err);
 
     this.deps.log('action refused by the consent gate', {
@@ -425,10 +492,23 @@ export class SessionService {
     session.updatedAt = nowIso();
     delete session.pendingAction;
 
+    // Clear any consent the engine was holding. A refused turn must not leave an approved
+    // action sitting there for a later call to pick up.
+    const machine = createMachine(
+      session.sessionId,
+      session.consent as MachineSnapshot<SensitiveAction> | undefined,
+    );
+    machine.cancel(`refused:${code}`);
+    session.consent = machine.snapshot();
+
     const say =
       code === 'blocked_capability'
         ? "That isn't something I'm able to do. I can let your care team know, or contact someone you trust."
-        : "I didn't have your clear approval for that, so I haven't done anything. Would you like to tell me again?";
+        : code === 'expired'
+          ? "I waited a while and didn't hear back, so I haven't done anything. Would you like to tell me again?"
+          : code === 'contact_not_notifiable'
+            ? "I'm not set up to contact them. You can change who I'm allowed to contact in your settings. Is there someone else?"
+            : "I didn't have your clear approval for that, so I haven't done anything. Would you like to tell me again?";
 
     session.turns.push({ turnId: randomUUID(), speaker: 'agent', text: say, at: nowIso() });
 
@@ -526,4 +606,32 @@ function buildHandoff(session: CareSession, action: SensitiveAction): CareSessio
   const mins = action.message?.match(/(\d{1,2})\s*minutes/);
   if (mins?.[1]) handoff.readyInMinutes = Number(mins[1]);
   return handoff;
+}
+
+/**
+ * Normalize a refusal from either enforcement layer into one vocabulary.
+ *
+ * `ActionRefused` comes from the domain gate, `ConsentStateError` from the consent engine.
+ * They overlap deliberately — see lib/consent.ts — so the same underlying refusal can
+ * surface from either, and the patient-facing wording must not depend on which one got
+ * there first.
+ */
+function refusalCode(err: unknown): string {
+  if (err instanceof ActionRefused) return err.code;
+  if (err instanceof ConsentStateError) {
+    switch (err.code) {
+      case 'blocked_action':
+        return 'blocked_capability';
+      case 'expired':
+        return 'expired';
+      case 'wrong_state':
+      case 'no_pending_action':
+        return 'not_confirmed';
+      case 'unknown_action':
+        return 'action_mismatch';
+      default:
+        return 'not_confirmed';
+    }
+  }
+  return 'unknown';
 }

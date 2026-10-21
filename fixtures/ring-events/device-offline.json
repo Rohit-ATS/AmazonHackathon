@@ -1,0 +1,24 @@
+{
+  "meta": {
+    "version": "1.1",
+    "time": "2026-10-21T14:14:00.000Z",
+    "request_id": "req_device_offline_demo",
+    "account_id": "acct_careflow_demo"
+  },
+  "data": {
+    "id": "back-door-002_device_offline_1792592040000",
+    "type": "device_offline",
+    "attributes": {
+      "source": "back-door-002",
+      "source_type": "devices",
+      "timestamp": 1792592040000
+    }
+  },
+  "relationships": {
+    "devices": {
+      "links": {
+        "self": "/v1/devices/back-door-002"
+      }
+    }
+  }
+}

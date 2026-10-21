@@ -326,7 +326,27 @@ export interface CareSession {
   turns: Turn[];
   pendingAction?: SensitiveAction;
   confirmedAction?: SensitiveAction;
+  /**
+   * The choices the agent last offered.
+   *
+   * Stored on the session rather than left in the transient turn, because a patient who
+   * reloads the page — or a second screen showing the same session — must still see their
+   * options. Losing the buttons would leave someone with no way to answer.
+   */
+  options?: { actionId: string; label: string }[];
   results: ActionResult[];
+  /**
+   * Serialized consent-engine state for this session.
+   *
+   * The engine (`@careflow/consent-engine`, our open-source package) runs alongside the
+   * backend's own checks as an independent second enforcement of the same rules. It is
+   * stored on the session so a stateless request can rehydrate it — including its
+   * confirmation expiry, which is evaluated on read rather than by a timer.
+   *
+   * Typed loosely here so that `@careflow/shared` does not depend on the engine; the real
+   * type is `MachineSnapshot<SensitiveAction>`.
+   */
+  consent?: unknown;
   /** Handoff record the caregiver dashboard renders. */
   handoff?: { request: string; note: string; readyInMinutes?: number };
   createdAt: string;
