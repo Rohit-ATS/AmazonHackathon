@@ -70,8 +70,6 @@ export function PatientScreen({
   const closed = state === 'done' || state === 'cancelled' || state === 'timed_out';
   const canSend = Boolean(session) && !busy && !closed;
 
-  const tone = !session ? 'is-idle' : awaitingConfirmation ? 'is-confirming' : closed ? 'is-done' : '';
-
   function submit(event: React.FormEvent) {
     event.preventDefault();
     const text = draft.trim();
@@ -81,27 +79,16 @@ export function PatientScreen({
   }
 
   return (
-    <section className="chat" aria-labelledby="status-line">
-      <header className={`chat-head ${tone}`}>
-        <div className="hero-label">
-          {!session
-            ? 'CareFlow'
-            : session.mode === 'emergency_assist_prototype'
-              ? 'You asked for help'
-              : session.match.status === 'scheduled'
-                ? 'Scheduled visit'
-                : 'At your door'}
-        </div>
-        <h1 id="status-line">{statusLine(session, voice)}</h1>
-        <p className="chat-sub">{statusSub(session, voice, plan)}</p>
-
-        {session?.mode === 'emergency_assist_prototype' && (
-          <p className="chat-sub" style={{ marginTop: '0.5rem' }}>
-            <span className="badge accent">Emergency assist · prototype</span> CareFlow does
-            not detect emergencies and cannot contact emergency services.
-          </p>
-        )}
-      </header>
+    <section className="chat" aria-label="CareFlow conversation">
+      {/*
+        * The visible status header was removed so the screen is the conversation and
+        * nothing else. A screen reader still needs to know what is happening, and that
+        * cannot come from the thread alone — the status is a property of the session, not
+        * of any one message — so the same sentence is announced from here instead.
+        */}
+      <p className="sr-only" role="status">
+        {statusLine(session, voice)}. {statusSub(session, voice, plan)}
+      </p>
 
       {error && (
         <p className="notice" role="alert">
@@ -253,6 +240,14 @@ export function PatientScreen({
           <button className="btn sm ghost" onClick={onCancel} disabled={busy || !session || closed}>
             Cancel
           </button>
+          {session?.mode === 'emergency_assist_prototype' && (
+            <span
+              className="badge warn"
+              title="CareFlow does not detect emergencies and cannot contact emergency services."
+            >
+              Emergency assist · prototype
+            </span>
+          )}
           {voice.voiceSource && (
             <span className="badge" title="Where the spoken voice comes from">
               Voice: {voice.voiceSource === 'polly' ? 'Amazon Polly' : 'browser'}
