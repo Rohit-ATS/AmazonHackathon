@@ -276,7 +276,13 @@ async function ringWebhook(ctx: AppContext, req: AppRequest): Promise<AppRespons
 // Ring account linking
 // ---------------------------------------------------------------------------
 
-const HTML_HEADERS = { 'content-type': 'text/html; charset=utf-8' };
+const HTML_HEADERS = {
+  'content-type': 'text/html; charset=utf-8',
+  'cache-control': 'no-store',
+  'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+  'referrer-policy': 'no-referrer',
+  'x-content-type-options': 'nosniff',
+};
 
 /** Account Link URL. GET shows the login form; only an authenticated POST starts OAuth. */
 async function ringLink(ctx: AppContext, req: AppRequest): Promise<AppResponse> {
@@ -309,7 +315,7 @@ async function ringLink(ctx: AppContext, req: AppRequest): Promise<AppResponse> 
     ctx.log('account link requested without Ring credentials');
     return { status: 200, headers: HTML_HEADERS, body: linkPage({ error: started.error, appName: 'CareFlow' }) };
   }
-  return { status: 303, headers: { location: started.authorizeUrl }, body: '' };
+  return { status: 303, headers: { ...HTML_HEADERS, location: started.authorizeUrl }, body: '' };
 }
 
 /** The redirect target. Completes the exchange and shows the user the outcome. */

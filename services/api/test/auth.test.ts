@@ -54,6 +54,9 @@ describe('API authentication boundary', () => {
     expect(result.status).toBe(200);
     expect(result.body).toContain('CareFlow access token');
     expect(result.headers.location).toBeUndefined();
+    expect(result.headers['cache-control']).toBe('no-store');
+    expect(result.headers['content-security-policy']).toContain("default-src 'none'");
+    expect(result.headers['referrer-policy']).toBe('no-referrer');
   });
 
   it('requires API authentication before starting Ring account linking', async () => {
@@ -73,8 +76,8 @@ describe('API authentication boundary', () => {
       headers: { 'content-type': 'application/json' },
     });
     expect(anonymous.status).toBe(401);
-
     expect(anonymous.body).toContain('CareFlow access token');
+    expect(anonymous.headers['cache-control']).toBe('no-store');
 
     const authorizedLink = await handleRequest(ringContext, {
       method: 'POST',
@@ -85,6 +88,7 @@ describe('API authentication boundary', () => {
     });
     expect(authorizedLink.status).toBe(303);
     expect(new URL(authorizedLink.headers.location!).host).toBe('account.ring.com');
+    expect(authorizedLink.headers['cache-control']).toBe('no-store');
   });
 
   it('fails Ring account linking closed when no API token is configured', async () => {

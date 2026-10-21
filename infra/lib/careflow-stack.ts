@@ -38,7 +38,7 @@ export interface CareFlowStackProps extends StackProps {
   /** Secrets Manager secret holding the Ring partner HMAC signing key. */
   ringHmacSecretName: string;
   bedrockModelId?: string;
-  /** Exact browser origin allowed to call the API. Falls back to '*' for the demo. */
+  /** Exact browser origin allowed to call the API. Defaults to the local Vite origin. */
   allowedOrigin?: string;
 }
 
@@ -75,6 +75,10 @@ export class CareFlowStack extends Stack {
     const apiAuthSecret = new Secret(this, 'ApiAuthToken', { generateSecretString: { passwordLength: 48 } });
     const mcpAuthSecret = new Secret(this, 'McpAuthToken', { generateSecretString: { passwordLength: 48 } });
     const apiLogGroup = new LogGroup(this, 'ApiLogs', {
+      retention: RetentionDays.TWO_WEEKS,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+    const accessLogGroup = new LogGroup(this, 'HttpAccessLogs', {
       retention: RetentionDays.TWO_WEEKS,
       removalPolicy: RemovalPolicy.DESTROY,
     });
@@ -192,7 +196,7 @@ export class CareFlowStack extends Stack {
     const httpApi = new HttpApi(this, 'HttpApi', {
       description: 'CareFlow API, including the Ring webhook endpoint',
       corsPreflight: {
-        allowOrigins: [props.allowedOrigin ?? '*'],
+        allowOrigins: [props.allowedOrigin ?? 'http://localhost:5173'],
         allowMethods: [CorsHttpMethod.GET, CorsHttpMethod.POST, CorsHttpMethod.OPTIONS],
         allowHeaders: ['authorization', 'content-type', 'x-signature', 'x-careflow-simulated'],
         maxAge: Duration.hours(1),
@@ -201,6 +205,19 @@ export class CareFlowStack extends Stack {
     const stage = httpApi.defaultStage?.node.defaultChild as CfnStage | undefined;
     if (stage) {
       stage.defaultRouteSettings = { throttlingBurstLimit: 50, throttlingRateLimit: 25 };
+      stage.accessLogSettings = {
+        destinationArn: accessLogGroup.logGroupArn,
+        format: JSON.stringify({
+          requestId: '$context.requestId',
+          requestTime: '$context.requestTime',
+          httpMethod: '$context.httpMethod',
+          routeKey: '$context.routeKey',
+          status: '$context.status',
+          responseLength: '$context.responseLength',
+          integrationError: '$context.integrationErrorMessage',
+          sourceIp: '$context.identity.sourceIp',
+        }),
+      };
     }
 
     const integration = new HttpLambdaIntegration('ApiIntegration', api);

@@ -181,6 +181,34 @@ describe('Streamable HTTP transport', () => {
     sessionId = saved;
   });
 
+  it.each(['application/json', 'text/event-stream'])(
+    'rejects POST when Accept only lists %s',
+    async (accept) => {
+      const res = await post({ jsonrpc: '2.0', id: ++id, method: 'ping' }, { accept });
+      expect(res.status).toBe(406);
+    },
+  );
+
+  it.each([
+    'application/jsonx, text/event-stream',
+    'application/json, text/event-stream-foo',
+    'application/json, text/event-stream;q=0',
+    'application/json;q=bogus, text/event-stream',
+    'application/json;q=-1, text/event-stream',
+    'application/json;q=2, text/event-stream',
+  ])('rejects invalid Accept media ranges: %s', async (accept) => {
+    const res = await post({ jsonrpc: '2.0', id: ++id, method: 'ping' }, { accept });
+    expect(res.status).toBe(406);
+  });
+
+  it('accepts exact media types case-insensitively and with parameters', async () => {
+    const res = await post(
+      { jsonrpc: '2.0', id: ++id, method: 'ping' },
+      { accept: 'Application/JSON; charset=utf-8, Text/Event-Stream; q=1' },
+    );
+    expect(res.status).toBe(200);
+  });
+
   it('returns 404 once a session is terminated, so the client re-initializes', async () => {
     const deleted = await server.handle({
       method: 'DELETE',

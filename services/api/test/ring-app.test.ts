@@ -6,6 +6,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { completeAccountLink, startAccountLink, LINK_TTL_MS } from '../src/lib/ringapp.js';
 import { Store } from '../src/lib/store.js';
 import type { Config } from '../src/lib/config.js';
@@ -90,6 +93,43 @@ describe('completing an account link', () => {
     const second = await completeAccountLink(config, store, { code: 'code-1', state });
 
     expect(second).toEqual({ ok: false, reason: expect.stringContaining('no longer valid') });
+  });
+
+  it('atomically allows only one consumer of a pending link', async () => {
+    const config = makeConfig();
+    const store = new Store(config);
+    const started = await startAccountLink(config, store);
+    if (!('authorizeUrl' in started)) throw new Error('expected a URL');
+    const state = new URL(started.authorizeUrl).searchParams.get('state')!;
+
+    const results = await Promise.all([
+      store.takePendingLink(state),
+      store.takePendingLink(state),
+    ]);
+    expect(results.filter(Boolean)).toHaveLength(1);
+  });
+
+  it('serializes pending-link consumption across local Store instances', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'careflow-ring-link-'));
+    const statePath = path.join(dir, 'state.json');
+    const config = makeConfig({ localStatePath: statePath });
+    try {
+      const writer = new Store(config);
+      await writer.savePendingLink('shared-state', {
+        verifier: 'v'.repeat(43),
+        createdAt: Date.now(),
+        expiresAt: Date.now() + LINK_TTL_MS,
+      });
+      const first = new Store(config);
+      const second = new Store(config);
+      const results = await Promise.all([
+        first.takePendingLink('shared-state'),
+        second.takePendingLink('shared-state'),
+      ]);
+      expect(results.filter(Boolean)).toHaveLength(1);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it('rejects an expired link attempt', async () => {

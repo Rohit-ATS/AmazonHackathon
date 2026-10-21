@@ -45,10 +45,29 @@ interface Row {
 interface Backend {
   put(row: Row): Promise<void>;
   get(pk: string, sk: string): Promise<Row | undefined>;
+  /** Atomically consume a row only while it still contains a verifier. */
+  takePendingVerifier(pk: string, sk: string): Promise<Row | undefined>;
   queryByPk(pk: string, limit?: number): Promise<Row[]>;
   /** Conditional put used for idempotency; false means the key already existed. */
   putIfAbsent(row: Row): Promise<boolean>;
   scanPrefix(prefix: string, limit: number): Promise<Row[]>;
+}
+
+const localTakeLocks = new Map<string, Promise<void>>();
+
+async function withLocalTakeLock<T>(path: string, operation: () => Promise<T>): Promise<T> {
+  const previous = localTakeLocks.get(path) ?? Promise.resolve();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const tail = previous.then(() => gate);
+  localTakeLocks.set(path, tail);
+  await previous;
+  try {
+    return await operation();
+  } finally {
+    release();
+    if (localTakeLocks.get(path) === tail) localTakeLocks.delete(path);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -139,6 +158,26 @@ class LocalBackend implements Backend {
     return this.rows.get(this.key(pk, sk));
   }
 
+  async takePendingVerifier(pk: string, sk: string) {
+    return withLocalTakeLock(this.path, async () => {
+      await this.load();
+      if (!this.ephemeral) {
+        // Another Store instance in this process may have consumed the row, so refresh
+        // after acquiring the path-wide lock instead of trusting this instance's cache.
+        const raw = await readFile(this.path, 'utf8').catch(() => '[]');
+        this.rows = new Map(
+          (JSON.parse(raw) as Row[]).map((row) => [this.key(row.pk, row.sk), row]),
+        );
+      }
+      const k = this.key(pk, sk);
+      const row = this.rows.get(k);
+      if (!row || typeof row.verifier !== 'string') return undefined;
+      this.rows.set(k, { pk, sk, consumed: true, ttl: row.ttl });
+      await this.persist();
+      return row;
+    });
+  }
+
   async queryByPk(pk: string, limit?: number) {
     await this.load();
     const out = [...this.rows.values()]
@@ -208,6 +247,22 @@ class DynamoBackend implements Backend {
       new GetCommand({ TableName: this.table, Key: { pk, sk } }),
     );
     return res.Item as Row | undefined;
+  }
+
+  async takePendingVerifier(pk: string, sk: string) {
+    const { DeleteCommand } = await import('@aws-sdk/lib-dynamodb');
+    try {
+      const res = await (await this.doc).send(new DeleteCommand({
+        TableName: this.table,
+        Key: { pk, sk },
+        ConditionExpression: 'attribute_exists(verifier)',
+        ReturnValues: 'ALL_OLD',
+      }));
+      return res.Attributes as Row | undefined;
+    } catch (err) {
+      if ((err as { name?: string }).name === 'ConditionalCheckFailedException') return undefined;
+      throw err;
+    }
   }
 
   async queryByPk(pk: string, limit?: number) {
@@ -402,14 +457,8 @@ export class Store {
   async takePendingLink(
     state: string,
   ): Promise<{ verifier: string; createdAt: number; expiresAt: number } | undefined> {
-    const row = await this.backend.get(`RINGLINK#${state}`, 'META');
-    // A consumed marker is still a row, so it has to be checked explicitly. Without this
-    // the second call returns a "pending link" with no verifier and replay protection is
-    // silently absent — which a test caught, and which would have let the same
-    // authorization code be exchanged twice.
-    if (!row || row.consumed === true || typeof row.verifier !== 'string') return undefined;
-
-    await this.backend.put({ pk: `RINGLINK#${state}`, sk: 'META', consumed: true, ttl: row.ttl });
+    const row = await this.backend.takePendingVerifier(`RINGLINK#${state}`, 'META');
+    if (!row || typeof row.verifier !== 'string') return undefined;
     return {
       verifier: String(row.verifier),
       createdAt: Number(row.createdAt),

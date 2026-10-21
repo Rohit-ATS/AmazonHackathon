@@ -139,7 +139,8 @@ API: cheaper, lower latency, and we need none of REST API's extra features.
 
 **Decisions worth noting.**
 - **CORS is explicit.** The deployed stack takes an exact browser origin
-  (`CAREFLOW_WEB_ORIGIN`); `*` is the local dev default only.
+  (`CAREFLOW_WEB_ORIGIN`); when omitted, CDK permits only the local Vite origin
+  (`http://localhost:5173`) rather than deploying wildcard CORS.
 - **The webhook path is effectively permanent.** Ring's webhook URL is set during partner
   onboarding and cannot be changed through the API, so `/ring/webhook` is fixed once
   registered.

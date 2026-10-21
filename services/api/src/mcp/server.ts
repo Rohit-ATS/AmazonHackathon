@@ -115,7 +115,16 @@ export class McpServer {
 
   private async handlePost(req: McpRequestInput): Promise<McpResponse> {
     const accept = req.headers['accept'] ?? '';
-    if (!accept.includes('application/json') && !accept.includes('text/event-stream')) {
+    const accepted = new Set(
+      accept.split(',').flatMap((entry) => {
+        const [mediaType, ...parameters] = entry.trim().toLowerCase().split(';');
+        const quality = parameters.find((parameter) => /^\s*q\s*=/.test(parameter));
+        if (quality && !/^\s*q\s*=\s*(?:0(?:\.\d{0,3})?|1(?:\.0{0,3})?)\s*$/.test(quality)) return [];
+        const disabled = quality !== undefined && Number(quality.split('=')[1]?.trim()) === 0;
+        return mediaType && !disabled ? [mediaType] : [];
+      }),
+    );
+    if (!accepted.has('application/json') || !accepted.has('text/event-stream')) {
       return this.json(
         406,
         failure(

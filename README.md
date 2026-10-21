@@ -258,6 +258,12 @@ Speech API rather than streaming a care recipient's voice to the cloud. In demo 
 notifications are recorded rather than sent. The patient controls who may be contacted, and
 CareFlow refuses to notify anyone they have not approved.
 
+The current deployment model is deliberately one household and one care recipient per
+stack. Its API bearer is a household credential, and its linked Ring account is global to
+that stack. Multi-household hosting requires an identity provider, role and household
+claims, household-scoped storage keys, and Ring device ownership routing; it is not implied
+by this hackathon demo.
+
 ## Tests
 
 ```bash
