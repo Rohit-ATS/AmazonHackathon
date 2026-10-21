@@ -11,8 +11,6 @@
  */
 
 import type { CarePlan, CareSession } from '@careflow/shared';
-import { stagger } from '../lib/useReveal.js';
-import { Blob, Wave } from './Decor.js';
 
 interface Props {
   plan: CarePlan | undefined;
@@ -28,7 +26,6 @@ export function CaregiverDashboard({ plan, sessions, activeSessionId, onSelectSe
   return (
     <>
       <section className="panel-dark" aria-labelledby="patient-heading" data-reveal="pop">
-        <Wave />
         <header
           style={{
             display: 'flex',
@@ -94,7 +91,6 @@ export function CaregiverDashboard({ plan, sessions, activeSessionId, onSelectSe
       </section>
 
       <section className="card" aria-labelledby="visits-heading" data-reveal>
-        <Blob corner="br" size="34%" />
         <header>
           <div>
             <div className="eyebrow">Schedule</div>
@@ -108,7 +104,7 @@ export function CaregiverDashboard({ plan, sessions, activeSessionId, onSelectSe
               (s) => s.match.visit?.visitId === visit.visitId && s.state === 'done',
             );
             return (
-              <div className="row" key={visit.visitId} data-reveal style={stagger(i)}>
+              <div className="row" key={visit.visitId} data-reveal>
                 <strong style={{ fontVariantNumeric: 'tabular-nums' }}>
                   {formatTime(visit.startsAt)}–{formatTime(visit.endsAt)}
                 </strong>
@@ -165,7 +161,6 @@ export function CaregiverDashboard({ plan, sessions, activeSessionId, onSelectSe
       </section>
 
       <section className="card" aria-labelledby="handoff-heading" data-reveal>
-        <Blob corner="tr" size="28%" tone="ink" />
         <header>
           <div>
             <div className="eyebrow">Before you knock</div>
@@ -182,13 +177,12 @@ export function CaregiverDashboard({ plan, sessions, activeSessionId, onSelectSe
         )}
 
         <div className="rows">
-          {withHandoff.map((session, i) => (
+          {withHandoff.map((session) => (
             <button
               key={session.sessionId}
               className="row"
               onClick={() => onSelectSession(session.sessionId)}
               data-reveal
-              style={{ textAlign: 'left', cursor: 'pointer', width: '100%', ...stagger(i) }}
               aria-current={session.sessionId === active?.sessionId}
             >
               <div className="grow">
@@ -221,8 +215,8 @@ export function CaregiverDashboard({ plan, sessions, activeSessionId, onSelectSe
           <span className="badge">Patient-controlled</span>
         </header>
         <div className="rows">
-          {plan?.contacts.map((contact, i) => (
-            <div className="row" key={contact.contactId} data-reveal style={stagger(i)}>
+          {plan?.contacts.map((contact) => (
+            <div className="row" key={contact.contactId} data-reveal>
               <span className="grow">
                 <strong>{contact.displayName}</strong>
                 <span className="muted small"> · {contact.relationship ?? contact.role}</span>
