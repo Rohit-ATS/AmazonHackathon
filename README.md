@@ -218,6 +218,9 @@ docs                      contract, AWS write-up, submission, friction logs
 
 | Doc | What's in it |
 |---|---|
+| [docs/connecting.md](docs/connecting.md) | Every API and credential, and what each one upgrades |
+| [docs/alexa-mcp.md](docs/alexa-mcp.md) | The MCP server: transport, tools, consent gate |
+| [docs/ring-app.md](docs/ring-app.md) | CareFlow as a Ring Appstore app |
 | [docs/CONTRACT.md](docs/CONTRACT.md) | The API and the seams between workstreams |
 | [docs/aws-services.md](docs/aws-services.md) | Every AWS service, and the ones we skipped |
 | [docs/voice-scripts.md](docs/voice-scripts.md) | Exact demo dialogue |
