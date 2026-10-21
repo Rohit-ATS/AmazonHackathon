@@ -1,54 +1,72 @@
 /*
  * CareFlow — visual system.
  *
- * Acid-lime / near-black / paper-white, big rounded blocks, geometric type, soft shadows
- * and hand-drawn accents.
+ * Warm clinical: a deep teal brand on warm off-white paper, with a calm slate for text and
+ * dark panels. The people using this are recovering at home, and the people reviewing it
+ * are clinicians and family. It should feel like something a care provider hands you, not
+ * like a product launch.
  *
- * One rule governs the palette: lime is a *surface*, never a text colour. Lime text on
- * white is roughly 1.5:1 and unreadable; black on lime is about 17:1. So every lime area
- * carries black type, and every black area carries white. That keeps the look exactly as
- * intended and lands comfortably past AA, which matters more here than on a fintech landing
- * page — the people using this may be older or low-vision.
+ * Colour rules, which exist for contrast rather than taste:
  *
- * `--scale` still drives every size through one multiplier, so "Larger text" reflows the
- * whole layout rather than only enlarging glyphs.
+ *  - Teal (--brand) carries the brand on light grounds. At #0f6b6b it is about 5.9:1 on
+ *    paper, so it is safe for text, borders and solid buttons with white type.
+ *  - The acid lime survives only as --accent, and only ever on a dark ground, where it runs
+ *    about 14:1. It is never a large surface under small dark text.
+ *  - Every state colour is a pair: a dark ink for the type, a soft tint for the ground.
+ *    They are used together, never crossed over.
+ *
+ * `--scale` drives every size through one multiplier, so "Larger text" reflows the whole
+ * layout rather than only enlarging glyphs.
+ *
+ * There is no decorative layer. The blobs, wave lines and drawn arrows that used to sit
+ * behind the content were removed: they competed with the status line, and on a screen whose
+ * job is to say plainly what is happening at someone's front door, ornament is noise.
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
 
 :root {
   --scale: 1;
 
-  /* Core palette */
-  --lime: #d9f550;
-  --lime-deep: #c7e52f;
-  --lime-soft: #eefbb0;
-  --ink: #0c0d0c;
-  --ink-2: #1b1d1a;
-  --paper: #ffffff;
-  --mist: #f2f3ee;
-  --mist-2: #e7e9e0;
-  --line: #e2e4da;
-  --text: #0c0d0c;
-  --text-muted: #63675c;
-  --coral: #ff6b5e;
-  --coral-soft: #ffe8e5;
-  --ok: #1f7a4d;
-  --ok-soft: #e2f5ea;
-  --warn: #8a5a00;
+  /* Brand */
+  --brand: #0f6b6b;
+  --brand-deep: #0a5050;
+  --brand-soft: #e7f2f1;
+  --brand-line: #bcd9d6;
 
-  /* Shape */
-  --r-xs: 10px;
-  --r-sm: 14px;
-  --r: 20px;
-  --r-lg: 28px;
-  --r-xl: 40px;
+  /* The lime, demoted: dark grounds only. */
+  --accent: #d8f06a;
+
+  /* Neutrals — warm, so the page reads softer than a clinical white */
+  --paper: #ffffff;
+  --surface: #f7f5f1;
+  --surface-2: #efebe4;
+  --line: #e4dfd7;
+  --line-strong: #c9c2b6;
+  --ink: #17201f;
+  --text: #1b2422;
+  --text-muted: #5d6a66;
+
+  /* States — each a type colour and a ground that belong together */
+  --ok: #1f7a4d;
+  --ok-soft: #e4f4ec;
+  --warn: #8a5a00;
+  --warn-soft: #fbf0d8;
+  --danger: #b3261e;
+  --danger-soft: #fdeceb;
+  --rec: #c2402f;
+
+  /* Shape — rounded enough to feel approachable, not bubbly */
+  --r-xs: 8px;
+  --r-sm: 10px;
+  --r: 14px;
+  --r-lg: 20px;
   --pill: 999px;
 
-  --gap: calc(1.15rem * var(--scale));
-  --shadow-sm: 0 1px 2px rgb(12 13 12 / 5%), 0 6px 18px rgb(12 13 12 / 5%);
-  --shadow: 0 2px 6px rgb(12 13 12 / 6%), 0 18px 48px rgb(12 13 12 / 8%);
-  --shadow-lg: 0 30px 80px rgb(12 13 12 / 14%);
+  --gap: calc(1.1rem * var(--scale));
+
+  /* Shadows stay faint. A care tool should sit flat on the page. */
+  --shadow-sm: 0 1px 2px rgb(23 32 31 / 5%), 0 2px 8px rgb(23 32 31 / 4%);
 
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
@@ -66,22 +84,21 @@ html {
 
 body {
   margin: 0;
-  background: var(--paper);
+  background: var(--surface);
   color: var(--text);
   font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  font-weight: 500;
-  line-height: 1.55;
+  font-weight: 450;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
 }
 
 h1,
 h2,
 h3 {
   margin: 0;
-  font-weight: 800;
-  letter-spacing: -0.035em;
-  line-height: 1.04;
+  font-weight: 700;
+  letter-spacing: -0.018em;
+  line-height: 1.18;
   text-wrap: balance;
 }
 
@@ -95,9 +112,9 @@ button {
 }
 
 :focus-visible {
-  outline: 3px solid var(--ink);
-  outline-offset: 3px;
-  border-radius: 8px;
+  outline: 3px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 6px;
 }
 
 .sr-only {
@@ -118,7 +135,7 @@ button {
   top: -5rem;
   z-index: 100;
   padding: 0.85rem 1.3rem;
-  background: var(--ink);
+  background: var(--brand);
   color: var(--paper);
   border-radius: var(--pill);
   font-weight: 700;
@@ -146,46 +163,46 @@ button {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--gap);
-  padding: 0.85rem clamp(1rem, 3vw, 2.5rem);
-  background: rgb(255 255 255 / 86%);
-  backdrop-filter: blur(14px);
-  border-bottom: 1px solid transparent;
-  transition: border-color 220ms var(--ease), box-shadow 220ms var(--ease);
+  padding: 0.75rem clamp(1rem, 3vw, 2.5rem);
+  background: rgb(255 255 255 / 92%);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+  transition: box-shadow 220ms var(--ease);
 }
 
-/* Set from JS once the page scrolls, so the header lifts off the hero. */
+/* Set from JS once the page scrolls. The border is always there now, so the header never
+   looks unattached; scrolling only adds the lift. */
 .app-header.is-stuck {
-  border-bottom-color: var(--line);
   box-shadow: var(--shadow-sm);
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.6rem;
   margin-right: auto;
-  font-weight: 800;
-  font-size: 1.12rem;
-  letter-spacing: -0.03em;
+  font-weight: 700;
+  font-size: 1.08rem;
+  letter-spacing: -0.02em;
 }
 
-/* The lime dot that sits over the wordmark, as in the reference. */
 .brand-dot {
-  width: 1.5em;
-  height: 1.5em;
-  border-radius: 50%;
-  background: var(--lime);
+  width: 1.9em;
+  height: 1.9em;
+  border-radius: var(--r-sm);
+  background: var(--brand);
   display: grid;
   place-items: center;
-  font-size: 0.62rem;
-  font-weight: 800;
-  color: var(--ink);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--paper);
   flex: none;
 }
 
 .brand small {
-  font-weight: 500;
-  font-size: 0.74rem;
+  font-weight: 450;
+  font-size: 0.76rem;
   color: var(--text-muted);
   letter-spacing: 0;
 }
@@ -202,79 +219,87 @@ button {
 .tabs {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.3rem;
-  padding: 0.75rem clamp(1rem, 3vw, 2.5rem) 0;
+  gap: 0.25rem;
+  padding: 0.85rem clamp(1rem, 3vw, 2.5rem) 0;
+  max-width: 78rem;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .tab {
   position: relative;
   min-height: 48px;
-  padding: 0 1.15rem;
-  border: 0;
+  padding: 0 1.1rem;
+  border: 1px solid transparent;
   border-radius: var(--pill);
   background: transparent;
   color: var(--text-muted);
   font-weight: 600;
-  transition: color 180ms var(--ease), background-color 180ms var(--ease);
+  font-size: 0.95rem;
+  transition: color 160ms var(--ease), background-color 160ms var(--ease),
+    border-color 160ms var(--ease);
 }
 
 .tab:hover {
-  background: var(--mist);
+  background: var(--paper);
+  border-color: var(--line);
   color: var(--text);
 }
 
 .tab[aria-selected='true'] {
-  background: var(--ink);
+  background: var(--brand);
+  border-color: var(--brand);
   color: var(--paper);
 }
 
 main {
   flex: 1;
   width: 100%;
-  max-width: 74rem;
+  max-width: 78rem;
   margin: 0 auto;
-  padding: var(--gap) clamp(1rem, 3vw, 2.5rem) 5rem;
+  padding: var(--gap) clamp(1rem, 3vw, 2.5rem) 3rem;
   display: grid;
-  gap: calc(var(--gap) * 1.3);
+  gap: var(--gap);
+  align-content: start;
 }
 
 /* ====================================================================== blocks */
 
 .card {
   position: relative;
-  background: var(--mist);
+  background: var(--paper);
+  border: 1px solid var(--line);
   border-radius: var(--r-lg);
-  padding: calc(var(--gap) * 1.3);
-  overflow: hidden;
+  padding: calc(var(--gap) * 1.15);
 }
 
 .card.plain {
-  background: var(--paper);
-  border: 1px solid var(--line);
+  background: var(--surface);
 }
 
 .card > header {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
+  padding-bottom: 0.8rem;
   margin-bottom: 1rem;
+  border-bottom: 1px solid var(--line);
 }
 
 .card h2 {
-  font-size: 1.32rem;
-  letter-spacing: -0.03em;
+  font-size: 1.18rem;
 }
 
 /* Section eyebrow, the small all-caps label above a block. */
 .eyebrow {
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
+  font-size: 0.67rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-muted);
+  margin-bottom: 0.15rem;
 }
 
 .muted {
@@ -282,122 +307,136 @@ main {
 }
 
 .small {
-  font-size: 0.86rem;
+  font-size: 0.87rem;
 }
 
 .mono {
   font-family: ui-monospace, SFMono-Regular, 'Cascadia Mono', Menlo, monospace;
-  font-size: 0.78rem;
+  font-size: 0.79rem;
   word-break: break-all;
+}
+
+/* A right-aligned cluster of controls inside a card header. */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+/* ==================================================== patient: one screen, no scroll */
+
+/*
+ * The patient view is a two-column working surface rather than a stack. Every control —
+ * speak, repeat, the offered choices, help and cancel — sits in the left column beside the
+ * conversation, so nothing the patient might need is below the fold. Someone deciding
+ * whether to let a stranger in should not have to scroll to find "no".
+ */
+.patient-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: var(--gap);
+  align-items: start;
+}
+
+.patient-col {
+  display: grid;
+  gap: var(--gap);
+  align-content: start;
+  min-width: 0;
+}
+
+/* Below this width, or at large text, the columns stack — the reflow "Larger text" needs. */
+@media (max-width: 68rem) {
+  .patient-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* ================================================================ hero / status */
 
+/*
+ * The status line. Its job is to answer "what is happening right now", so it is a calm card
+ * with a state bar down its leading edge rather than a saturated slab — colour marks the
+ * state, it does not shout on every screen.
+ */
 .hero {
   position: relative;
-  border-radius: var(--r-xl);
-  padding: clamp(1.6rem, 4vw, 3.2rem);
-  background: var(--lime);
-  color: var(--ink);
+  border-radius: var(--r-lg);
+  padding: clamp(1.2rem, 2.4vw, 1.9rem);
+  padding-left: clamp(1.45rem, 2.7vw, 2.2rem);
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-line);
+  color: var(--text);
   overflow: hidden;
-  isolation: isolate;
 }
 
+.hero::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: var(--brand);
+}
+
+.hero.is-idle {
+  background: var(--paper);
+  border-color: var(--line);
+}
+
+.hero.is-idle::before {
+  background: var(--line-strong);
+}
+
+/* Confirmation is the one moment that should take the whole room. */
 .hero.is-confirming {
-  background: var(--ink);
+  background: var(--brand-deep);
+  border-color: var(--brand-deep);
   color: var(--paper);
+}
+
+.hero.is-confirming::before {
+  background: var(--accent);
 }
 
 .hero.is-done {
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--ok-soft);
+  border-color: #c2e3d2;
 }
 
-/*
- * Idle stays lime. An earlier version greyed it out when nothing was happening, which is
- * most of the time — and a care product that looks switched off when all is well reads as
- * broken rather than calm.
- */
-.hero.is-idle {
-  background: var(--lime);
-}
-
-/* Soft blob behind the hero text, as in the reference's shape work. */
-.hero::after {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  right: -8%;
-  top: -40%;
-  width: 46%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: rgb(255 255 255 / 22%);
-  pointer-events: none;
-}
-
-.hero.is-confirming::after,
-.hero.is-done::after {
-  background: rgb(217 245 80 / 14%);
+.hero.is-done::before {
+  background: var(--ok);
 }
 
 .hero-label {
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
+  font-size: 0.69rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  opacity: 0.72;
-  margin-bottom: 0.9rem;
+  opacity: 0.75;
+  margin-bottom: 0.6rem;
 }
 
 .hero h1 {
-  font-size: clamp(2.1rem, 1.3rem + 3.6vw, 4rem);
-  max-width: 16ch;
+  font-size: clamp(1.6rem, 1.1rem + 1.8vw, 2.4rem);
+  max-width: 20ch;
+  letter-spacing: -0.022em;
 }
 
 .hero-sub {
-  margin: 0.9rem 0 0;
-  font-size: clamp(1rem, 0.95rem + 0.3vw, 1.14rem);
-  max-width: 48ch;
-  opacity: 0.82;
+  margin: 0.7rem 0 0;
+  font-size: clamp(0.98rem, 0.95rem + 0.2vw, 1.06rem);
+  max-width: 54ch;
+  opacity: 0.85;
 }
 
 .hero-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.7rem;
-  margin-top: 1.7rem;
-}
-
-/* The hand-drawn arrow accent. */
-.scribble {
-  position: absolute;
-  right: clamp(1rem, 5vw, 4rem);
-  bottom: clamp(1rem, 3vw, 2.5rem);
-  width: clamp(90px, 14vw, 170px);
-  opacity: 0.9;
-  pointer-events: none;
-}
-
-.scribble path {
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 2.4;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  /* Drawn in on reveal. */
-  stroke-dasharray: var(--len, 400);
-  stroke-dashoffset: var(--len, 400);
-}
-
-[data-reveal].is-visible .scribble path {
-  animation: draw 1.1s var(--ease) 0.25s forwards;
-}
-
-@keyframes draw {
-  to {
-    stroke-dashoffset: 0;
-  }
+  gap: 0.6rem;
+  margin-top: 1.2rem;
 }
 
 /* ===================================================================== buttons */
@@ -406,98 +445,112 @@ main {
   position: relative;
   min-height: 54px;
   min-width: 48px;
-  padding: 0 1.5rem;
+  padding: 0 1.35rem;
   border-radius: var(--pill);
-  border: 1.5px solid var(--ink);
+  border: 1.5px solid var(--line-strong);
   background: var(--paper);
-  color: var(--ink);
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  color: var(--text);
+  font-weight: 650;
+  letter-spacing: -0.005em;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  transition: transform 180ms var(--ease), background-color 180ms var(--ease),
-    color 180ms var(--ease), box-shadow 180ms var(--ease);
+  transition: background-color 160ms var(--ease), color 160ms var(--ease),
+    border-color 160ms var(--ease), box-shadow 160ms var(--ease);
 }
 
 .btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-sm);
-}
-
-.btn:active:not(:disabled) {
-  transform: translateY(0);
+  border-color: var(--brand);
+  color: var(--brand);
 }
 
 .btn:disabled {
-  opacity: 0.42;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
 .btn.primary {
-  background: var(--ink);
-  border-color: var(--ink);
+  background: var(--brand);
+  border-color: var(--brand);
   color: var(--paper);
 }
 
 .btn.primary:hover:not(:disabled) {
-  background: var(--ink-2);
+  background: var(--brand-deep);
+  border-color: var(--brand-deep);
+  color: var(--paper);
 }
 
+/* The suggested option in a list of choices: present, but not a second primary. */
 .btn.lime {
-  background: var(--lime);
-  border-color: var(--lime);
-  color: var(--ink);
+  background: var(--brand-soft);
+  border-color: var(--brand-line);
+  color: var(--brand-deep);
 }
 
 .btn.lime:hover:not(:disabled) {
-  background: var(--lime-deep);
-  border-color: var(--lime-deep);
+  border-color: var(--brand);
+  color: var(--brand-deep);
 }
 
 .btn.ghost {
   background: transparent;
-  border-color: var(--line);
+  border-color: var(--line-strong);
 }
 
+/* Approve / decline. Green for the affirmative, plain for the decline — a refusal should
+   never look like the harder button to press. */
 .btn.yes {
-  background: var(--lime);
-  border-color: var(--lime);
-  color: var(--ink);
+  background: var(--ok);
+  border-color: var(--ok);
+  color: var(--paper);
+}
+
+.btn.yes:hover:not(:disabled) {
+  background: #19653f;
+  border-color: #19653f;
+  color: var(--paper);
 }
 
 .btn.no {
   background: var(--paper);
-  border-color: var(--ink);
-  color: var(--ink);
+  border-color: var(--line-strong);
+  color: var(--text);
 }
 
 .btn.big {
-  min-height: 64px;
-  font-size: 1.05rem;
-  padding: 0 1.9rem;
+  min-height: 62px;
+  font-size: 1.02rem;
+  padding: 0 1.7rem;
 }
 
 .btn.sm {
   /* 48px, not 44: the brief's floor applies to every control, and "Larger text" is
      precisely the one a low-vision patient has to hit first. */
   min-height: 48px;
-  padding: 0 1.05rem;
+  padding: 0 1rem;
   font-size: 0.88rem;
-  font-weight: 700;
+  font-weight: 650;
 }
 
+/* Recording. A deep red rather than the old coral, which was too light to carry white type
+   at anything like an accessible contrast. */
 .btn.listening {
-  background: var(--coral);
-  border-color: var(--coral);
+  background: var(--rec);
+  border-color: var(--rec);
   color: var(--paper);
-  animation: pulse 1.5s ease-in-out infinite;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+.btn.listening:hover:not(:disabled) {
+  color: var(--paper);
+  border-color: var(--rec);
 }
 
 @keyframes pulse {
   50% {
-    box-shadow: 0 0 0 12px rgb(255 107 94 / 18%);
+    box-shadow: 0 0 0 10px rgb(194 64 47 / 14%);
   }
 }
 
@@ -505,91 +558,88 @@ main {
 
 .transcript {
   display: grid;
-  gap: 0.8rem;
-  max-height: 24rem;
+  gap: 0.65rem;
+  /* Viewport-relative so the conversation never pushes the controls off screen. */
+  max-height: min(26rem, 46vh);
   overflow-y: auto;
   padding-right: 0.35rem;
   scrollbar-width: thin;
 }
 
 .bubble {
-  padding: 0.95rem 1.2rem;
+  padding: 0.8rem 1.05rem;
   border-radius: var(--r);
-  max-width: 50ch;
-  animation: rise 420ms var(--ease) both;
-}
-
-@keyframes rise {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
+  max-width: 52ch;
 }
 
 .bubble.agent {
-  background: var(--paper);
+  background: var(--surface);
   border: 1px solid var(--line);
   border-bottom-left-radius: var(--r-xs);
 }
 
 .bubble.patient {
-  background: var(--lime);
-  color: var(--ink);
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-line);
+  color: var(--text);
   margin-left: auto;
   border-bottom-right-radius: var(--r-xs);
 }
 
 .bubble .who {
   display: block;
-  font-size: 0.68rem;
-  font-weight: 800;
+  font-size: 0.66rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
-  opacity: 0.6;
-  margin-bottom: 0.25rem;
+  letter-spacing: 0.09em;
+  color: var(--text-muted);
+  margin-bottom: 0.2rem;
 }
 
 .bubble.interim {
-  opacity: 0.6;
+  opacity: 0.65;
   font-style: italic;
 }
 
 /* ===================================================================== consent */
 
+/*
+ * The approval block. Dark teal, so the one screen where the patient is asked to authorise
+ * something is unmistakably different from every other screen.
+ */
 .consent {
   position: relative;
   display: grid;
-  gap: 0.9rem;
-  padding: calc(var(--gap) * 1.3);
+  gap: 0.75rem;
+  padding: calc(var(--gap) * 1.15);
   border-radius: var(--r-lg);
-  background: var(--ink);
+  background: var(--brand-deep);
   color: var(--paper);
-  overflow: hidden;
-}
-
-.consent::after {
-  content: '';
-  position: absolute;
-  right: -6%;
-  bottom: -60%;
-  width: 36%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: rgb(217 245 80 / 12%);
 }
 
 .consent-label {
-  font-size: 0.7rem;
-  font-weight: 800;
+  font-size: 0.67rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--lime);
+  letter-spacing: 0.1em;
+  color: var(--accent);
 }
 
 .consent-action {
-  font-size: clamp(1.15rem, 1rem + 0.8vw, 1.6rem);
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font-size: clamp(1.08rem, 1rem + 0.55vw, 1.4rem);
+  font-weight: 700;
+  letter-spacing: -0.018em;
+}
+
+.consent .muted,
+.consent .small.muted {
+  color: rgb(255 255 255 / 72%);
+}
+
+.consent .btn.no {
+  background: transparent;
+  border-color: rgb(255 255 255 / 45%);
+  color: var(--paper);
 }
 
 /* ====================================================================== badges */
@@ -598,34 +648,34 @@ main {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.3rem 0.75rem;
+  padding: 0.26rem 0.66rem;
   border-radius: var(--pill);
-  font-size: 0.7rem;
-  font-weight: 800;
+  font-size: 0.67rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
-  background: var(--mist-2);
+  letter-spacing: 0.06em;
+  background: var(--surface-2);
   color: var(--text-muted);
   white-space: nowrap;
 }
 
 .badge.ok {
-  background: var(--lime);
-  color: var(--ink);
+  background: var(--ok-soft);
+  color: var(--ok);
 }
 
 .badge.warn {
-  background: var(--lime-soft);
+  background: var(--warn-soft);
   color: var(--warn);
 }
 
 .badge.danger {
-  background: var(--coral-soft);
-  color: #a3281d;
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .badge.accent {
-  background: var(--ink);
+  background: var(--brand);
   color: var(--paper);
 }
 
@@ -640,17 +690,17 @@ main {
 
 .timeline li {
   display: grid;
-  grid-template-columns: auto 1.6rem 1fr;
-  gap: 0.9rem;
-  padding-bottom: 1.3rem;
+  grid-template-columns: auto 1.4rem 1fr;
+  gap: 0.8rem;
+  padding-bottom: 1.1rem;
 }
 
 .timeline time {
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
-  font-size: 0.84rem;
+  font-size: 0.83rem;
   font-weight: 600;
-  padding-top: 0.2rem;
+  padding-top: 0.15rem;
   white-space: nowrap;
 }
 
@@ -661,9 +711,9 @@ main {
 }
 
 .timeline .dot {
-  width: 0.85rem;
-  height: 0.85rem;
-  margin-top: 0.42rem;
+  width: 0.8rem;
+  height: 0.8rem;
+  margin-top: 0.38rem;
   border-radius: 50%;
   background: var(--ink);
   flex: none;
@@ -671,9 +721,9 @@ main {
 
   /* The kind modifier comes from server data (entry.kind), so it can collide with a
      component class of the same name — `.consent` did exactly that, and its padding
-     inflated this 0.85rem dot into a disc that covered the entry's own text. The
-     modifiers are namespaced `.k-*` now, and these resets make the dot immune to any
-     bare class that lands on it in future. */
+     inflated this dot into a disc that covered the entry's own text. The modifiers are
+     namespaced `.k-*` now, and these resets make the dot immune to any bare class that
+     lands on it in future. */
   padding: 0;
   overflow: visible;
   box-shadow: none;
@@ -687,29 +737,31 @@ main {
 .timeline li:not(:last-child) .rail::after {
   content: '';
   position: absolute;
-  top: 1.5rem;
-  bottom: -1.3rem;
+  top: 1.35rem;
+  bottom: -1.1rem;
   width: 2px;
   background: var(--line);
 }
 
 .timeline .dot.k-ring_event {
-  background: var(--lime);
-  box-shadow: inset 0 0 0 2px var(--ink);
+  background: var(--paper);
+  box-shadow: inset 0 0 0 3px var(--brand);
 }
 .timeline .dot.k-ai_decision {
   background: var(--ink);
 }
-.timeline .dot.k-consent,
+.timeline .dot.k-consent {
+  background: var(--ok);
+}
 .timeline .dot.k-action {
-  background: var(--lime);
+  background: var(--brand);
 }
 .timeline .dot.k-refusal {
-  background: var(--coral);
+  background: var(--danger);
 }
 .timeline .dot.k-patient_choice {
   background: var(--paper);
-  box-shadow: inset 0 0 0 2.5px var(--ink);
+  box-shadow: inset 0 0 0 2.5px var(--line-strong);
 }
 
 .timeline .text {
@@ -722,11 +774,33 @@ main {
   margin-top: 0.15rem;
 }
 
+/*
+ * Compact mode. The timeline is the longest list in the product and it grows all day, so it
+ * can be shrunk to a scrolling window or closed entirely — otherwise every other block on
+ * the screen ends up below a few hundred entries.
+ */
+.timeline.is-compact {
+  max-height: 26rem;
+  overflow-y: auto;
+  padding-right: 0.4rem;
+  scrollbar-width: thin;
+}
+
+.timeline-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.9rem;
+  align-items: center;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.89rem;
+}
+
 /* ======================================================================= lists */
 
 .rows {
   display: grid;
-  gap: 0.6rem;
+  gap: 0.5rem;
 }
 
 .row {
@@ -734,22 +808,23 @@ main {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.7rem;
-  padding: 0.9rem 1.1rem;
+  padding: 0.8rem 1rem;
   border-radius: var(--r-sm);
   background: var(--paper);
   border: 1px solid var(--line);
-  transition: transform 180ms var(--ease), box-shadow 180ms var(--ease);
+  transition: border-color 160ms var(--ease), background-color 160ms var(--ease);
 }
 
 button.row {
   min-height: 48px;
   text-align: left;
   cursor: pointer;
+  width: 100%;
 }
 
 button.row:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-sm);
+  border-color: var(--brand);
+  background: var(--brand-soft);
 }
 
 .row .grow {
@@ -760,26 +835,19 @@ button.row:hover {
 .kv {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 0.65rem 1.2rem;
+  gap: 0.55rem 1.2rem;
   align-items: center;
   margin: 0;
 }
 
 .kv dt {
   color: var(--text-muted);
-  font-weight: 500;
 }
 
 .kv dd {
   margin: 0;
   text-align: right;
-  font-weight: 700;
-}
-
-.grid-2 {
-  display: grid;
-  gap: var(--gap);
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+  font-weight: 650;
 }
 
 /* ================================================================= dark panel */
@@ -788,9 +856,8 @@ button.row:hover {
   position: relative;
   background: var(--ink);
   color: var(--paper);
-  border-radius: var(--r-xl);
-  padding: clamp(1.5rem, 3.4vw, 2.6rem);
-  overflow: hidden;
+  border-radius: var(--r-lg);
+  padding: clamp(1.3rem, 2.8vw, 2.1rem);
 }
 
 .panel-dark h2,
@@ -800,27 +867,46 @@ button.row:hover {
 
 .panel-dark .muted,
 .panel-dark .small.muted {
-  color: rgb(255 255 255 / 62%);
+  color: rgb(255 255 255 / 68%);
+}
+
+.panel-dark .eyebrow {
+  color: var(--accent);
+}
+
+.panel-dark > header {
+  border-bottom-color: rgb(255 255 255 / 14%);
 }
 
 .panel-dark .row {
   background: rgb(255 255 255 / 5%);
-  border-color: rgb(255 255 255 / 12%);
+  border-color: rgb(255 255 255 / 13%);
   color: var(--paper);
 }
 
 .panel-dark .kv dt {
-  color: rgb(255 255 255 / 62%);
+  color: rgb(255 255 255 / 68%);
 }
 
 .panel-dark .badge {
   background: rgb(255 255 255 / 10%);
-  color: rgb(255 255 255 / 80%);
+  color: rgb(255 255 255 / 82%);
 }
 
+/* On a dark ground the lime is about 14:1, which is where it belongs. */
 .panel-dark .badge.ok {
-  background: var(--lime);
-  color: var(--ink);
+  background: rgb(216 240 106 / 18%);
+  color: var(--accent);
+}
+
+.panel-dark .badge.danger {
+  background: rgb(255 138 128 / 16%);
+  color: #ffb4ad;
+}
+
+.panel-dark .badge.warn {
+  background: rgb(255 209 128 / 16%);
+  color: #ffd98a;
 }
 
 .panel-dark .btn {
@@ -829,83 +915,55 @@ button.row:hover {
   color: var(--paper);
 }
 
-.panel-dark .btn.lime {
-  background: var(--lime);
-  border-color: var(--lime);
-  color: var(--ink);
-}
-
-/* The faint wave line used across the dark blocks in the reference. */
-/*
- * A full-bleed background texture rather than a line placed near the copy. At 42% width it
- * cut straight through the eyebrow text; stretched across the panel at low opacity it reads
- * as texture and leaves every label legible.
- */
-.wave {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0.16;
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* `fill: none` has to be global: an SVG path defaults to a solid black fill, so scoping
-   this to .panel-dark turned the wave into a large filled blob everywhere else. */
-.wave path {
-  fill: none;
-  stroke: var(--ink);
-  stroke-width: 1.5;
-  vector-effect: non-scaling-stroke;
-}
-
-.panel-dark .wave path,
-.demo-strip .wave path {
-  stroke: var(--paper);
-}
-
-/*
- * Lift real content above the decoration. The `:not()` matters: these selectors have the
- * same specificity as `.blob` and `.wave` and come later in the file, so without it they
- * win and force the decorations back to `position: relative` — which makes them take up
- * layout space and push the content down the panel.
- */
-.panel-dark > *:not(.blob):not(.wave),
-.demo-strip > *:not(.blob):not(.wave) {
-  position: relative;
-  z-index: 1;
+.panel-dark .btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* =================================================================== notices */
 
 .notice {
-  padding: 0.95rem 1.15rem;
+  padding: 0.85rem 1.05rem;
   border-radius: var(--r-sm);
-  background: var(--coral-soft);
-  border: 1px solid var(--coral);
-  color: #8e2419;
+  background: var(--danger-soft);
+  border: 1px solid #f3c6c2;
+  border-left: 4px solid var(--danger);
+  color: var(--danger);
   font-weight: 600;
 }
 
 .notice.info {
-  background: var(--lime-soft);
-  border-color: var(--lime-deep);
-  color: var(--ink);
+  background: var(--brand-soft);
+  border-color: var(--brand-line);
+  border-left-color: var(--brand);
+  color: var(--brand-deep);
 }
 
 /* ================================================================ demo strip */
 
+/*
+ * The stage control. Deliberately unlike the rest of the interface — this is the operator's
+ * panel, not the patient's, and a judge should never mistake one for the other.
+ */
 .demo-strip {
   background: var(--ink);
   color: var(--paper);
-  border-radius: var(--r-xl);
-  padding: clamp(1.4rem, 3vw, 2.3rem);
+  border-radius: var(--r-lg);
+  border: 1px dashed rgb(255 255 255 / 22%);
+  padding: clamp(1.2rem, 2.4vw, 1.8rem);
 }
 
 .demo-strip h2 {
   color: var(--paper);
-  font-size: 1.15rem;
+  font-size: 1.05rem;
+}
+
+.demo-strip .eyebrow {
+  color: var(--accent);
+}
+
+.demo-strip > header {
+  border-bottom-color: rgb(255 255 255 / 14%);
 }
 
 .demo-strip .btn {
@@ -915,14 +973,18 @@ button.row:hover {
 }
 
 .demo-strip .btn:hover:not(:disabled) {
-  background: var(--lime);
-  border-color: var(--lime);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--ink);
 }
 
 .demo-strip pre {
   background: rgb(255 255 255 / 6%);
   border: 1px solid rgb(255 255 255 / 12%);
-  color: var(--lime);
+  border-radius: var(--r-sm);
+  padding: 0.75rem 0.85rem;
+  color: var(--accent);
+  overflow-x: auto;
 }
 
 .demo-strip .row {
@@ -933,7 +995,7 @@ button.row:hover {
 
 .demo-strip .muted,
 .demo-strip .small.muted {
-  color: rgb(255 255 255 / 62%);
+  color: rgb(255 255 255 / 68%);
 }
 
 .demo-strip .badge {
@@ -942,22 +1004,27 @@ button.row:hover {
 }
 
 .demo-strip .badge.ok {
-  background: var(--lime);
-  color: var(--ink);
+  background: rgb(216 240 106 / 18%);
+  color: var(--accent);
+}
+
+.demo-strip .badge.danger {
+  background: rgb(255 138 128 / 16%);
+  color: #ffb4ad;
 }
 
 /* ============================================================== stat / figure */
 
 .stat {
   display: grid;
-  gap: 0.15rem;
+  gap: 0.1rem;
 }
 
 .stat .value {
-  font-size: clamp(1.7rem, 1.2rem + 1.8vw, 2.6rem);
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 1;
+  font-size: clamp(1.45rem, 1.2rem + 1.1vw, 2rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
 }
 
 .stat .label {
@@ -966,30 +1033,17 @@ button.row:hover {
   font-weight: 600;
 }
 
-/* A lime blob used to decorate light cards, as in the reference's feature tiles. */
-.blob {
-  position: absolute;
-  z-index: 0;
-  border-radius: 50%;
-  background: var(--lime);
-  pointer-events: none;
-}
-
-.card > *:not(.blob):not(.wave),
-.hero > *:not(.blob):not(.scribble) {
-  position: relative;
-  z-index: 1;
-}
-
 /* ============================================================ scroll reveals */
 
+/*
+ * One quiet fade, no stagger and no direction. The staggered slide-ins read as a product
+ * demo rather than a tool, and on a list they meant the newest entry arrived last — the
+ * wrong way round for the thing a carer is waiting to see.
+ */
 [data-reveal] {
   opacity: 0;
-  transform: translateY(26px);
-  transition:
-    opacity 760ms var(--ease) var(--delay, 0ms),
-    transform 760ms var(--ease) var(--delay, 0ms);
-  will-change: opacity, transform;
+  transform: translateY(8px);
+  transition: opacity 300ms var(--ease), transform 300ms var(--ease);
 }
 
 [data-reveal].is-visible {
@@ -997,27 +1051,10 @@ button.row:hover {
   transform: none;
 }
 
-/* Scale-in for blocks that should feel like they land rather than slide. */
-[data-reveal='pop'] {
-  transform: translateY(18px) scale(0.975);
-}
-
-[data-reveal='pop'].is-visible {
-  transform: none;
-}
-
-[data-reveal='left'] {
-  transform: translateX(-28px);
-}
-
-[data-reveal='left'].is-visible {
-  transform: none;
-}
-
 /*
- * Reduced motion: no movement, no drawn lines, no pulse — but everything must still be
- * visible. A reveal animation that never runs would otherwise leave the page blank, which
- * is the worst possible failure for an accessibility setting.
+ * Reduced motion: no movement, no pulse — but everything must still be visible. A reveal
+ * that never runs would otherwise leave the page blank, which is the worst possible failure
+ * for an accessibility setting.
  */
 @media (prefers-reduced-motion: reduce) {
   html {
@@ -1035,9 +1072,5 @@ button.row:hover {
   [data-reveal] {
     opacity: 1;
     transform: none;
-  }
-
-  .scribble path {
-    stroke-dashoffset: 0;
   }
 }
