@@ -78,43 +78,27 @@ reports which mode is running, so you never have to guess.
 
 ## Architecture
 
-```
-┌──────────────────────┐        ┌─────────────────────────┐
-│  Ring device         │        │  CareFlow Ring simulator│
-│  (Partner API)       │        │  (byte-exact v1.1)      │
-└──────────┬───────────┘        └───────────┬─────────────┘
-           │   signed webhook, X-Signature: sha256=…       │
-           └───────────────────┬───────────────────────────┘
-                               ▼
-                 ┌─────────────────────────────┐
-                 │ Amazon API Gateway (HTTP)   │   HTTPS, 5s budget
-                 └──────────────┬──────────────┘
-                                ▼
-                 ┌─────────────────────────────┐
-                 │ AWS Lambda — CareFlow API   │
-                 │                             │
-                 │  1. verify HMAC over raw    │
-                 │     bytes, constant time    │
-                 │  2. dedupe on request_id    │
-                 │  3. normalize → CareEvent   │
-                 │  4. match visit (plain code)│
-                 │  5. CONSENT GATE ───────────┼──► @careflow/consent-engine
-                 │  6. execute, audit          │    (independent 2nd check)
-                 └───┬────────┬────────┬───────┘
-                     │        │        │
-          ┌──────────▼──┐  ┌──▼─────┐ ┌▼──────────────┐
-          │ DynamoDB    │  │Bedrock │ │ Polly         │
-          │ sessions,   │  │phrase +│ │ neural voice  │
-          │ audit, TTL  │  │intent  │ └───────────────┘
-          └─────────────┘  └────────┘
-                     │
-                     ▼  SSE / REST
-          ┌────────────────────────────────┐
-          │ React web app                  │
-          │ patient · caregiver · timeline │
-          │ · safety                       │
-          └────────────────────────────────┘
-```
+<p align="center">
+  <img src="docs/architecture.svg" alt="CareFlow architecture: a Ring device or the CareFlow Ring simulator sends a signed webhook through API Gateway to the CareFlow Lambda, which verifies the HMAC over the raw bytes, dedupes on request_id, normalizes the event, matches the care plan in plain code, passes every sensitive action through a consent gate that the independent consent-engine package re-checks, then executes and audits. DynamoDB, Bedrock, Polly and Secrets Manager sit beneath it; the React web app reads over SSE or REST. Door unlock, alarm disarm, medical advice, medical diagnosis and emergency dispatch can never run." width="900">
+</p>
+
+Read it in one line: **a signed event comes in, the patient decides, and only then does anything
+happen** — with the decision checked twice, by the API's consent gate and again by
+[`@careflow/consent-engine`](packages/consent-engine), which shares no code with it.
+
+The parts worth knowing:
+
+- **The signature is verified over the raw bytes**, before any parsing. Parsing first is the
+  single most common way to get this wrong, and it fails in a way that looks like a bug in
+  your own HMAC code.
+- **`meta.request_id` is the idempotency key.** Ring retries; a conditional write in DynamoDB
+  makes the retry a no-op rather than a second notification to a patient's daughter.
+- **Matching a visit is plain code, not a model.** Whether a caregiver is expected at 14:05 is
+  a question with a right answer, and a language model is the wrong tool for it.
+- **Bedrock phrases and extracts; it never decides.** Intent comes back as a tool call with an
+  enumerated action id, so the model cannot invent an action that does not exist.
+- **The browser renders, it does not rule.** A consent check in the frontend is a suggestion,
+  since anyone can call the API directly — so every rule lives on the server.
 
 Full AWS write-up, including what we deliberately did **not** use and why:
 **[docs/aws-services.md](docs/aws-services.md)**.

@@ -168,7 +168,10 @@ the problem it solves is not specific to doorbells.
 
 **[https://github.com/Rohit-ATS/AmazonHackathon](https://github.com/Rohit-ATS/AmazonHackathon)**
 
-Public, MIT licensed. Clone and run:
+Public, MIT licensed. Architecture diagram:
+[`docs/architecture.svg`](../architecture.svg), rendered at the top of the README.
+
+Clone and run:
 
 ```bash
 npm install && npm run dev

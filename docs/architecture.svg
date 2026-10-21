@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 1150" width="1040" height="1150"
+     role="img"
+     aria-label="CareFlow request path for one Ring event. A Ring device or the CareFlow Ring simulator POSTs a signed webhook to API Gateway, which invokes the CareFlow Lambda. The Lambda verifies the HMAC over the raw bytes, dedupes on request_id, normalizes the event, matches it against the care plan in plain code, passes every sensitive action through a consent gate that the independent consent-engine package re-checks, and only then executes and writes an audit row. DynamoDB, Bedrock, Polly and Secrets Manager sit below the Lambda; the React web app receives SSE or REST updates. Door unlock, alarm disarm, medical advice, medical diagnosis and emergency dispatch can never run from any state after any confirmation."
+     font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0c0d0c"/>
+    </marker>
+    <marker id="arrow-start" viewBox="0 0 10 10" refX="1" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 10 0 L 0 5 L 10 10 z" fill="#0c0d0c"/>
+    </marker>
+  </defs>
+
+  <!-- Opaque ground: this file is embedded as an <img>, so it cannot inherit the
+       page's foreground colour. An explicit paper ground keeps it legible on
+       GitHub's dark theme as well as its light one. -->
+  <rect x="0" y="0" width="1040" height="1150" fill="#ffffff"/>
+
+  <text x="40" y="46" font-size="21" font-weight="700" fill="#0c0d0c">CareFlow — the path of one Ring event</text>
+  <text x="40" y="70" font-size="12.5" fill="#63675c">Nothing is sent until the patient says yes, and that is checked twice by two independent code paths.</text>
+
+  <!-- ============ row 1: the two event sources ============ -->
+  <rect x="70" y="100" width="390" height="74" rx="14" fill="#f2f3ee" stroke="#c9cdc0" stroke-width="1.5"/>
+  <text x="265" y="130" font-size="15" font-weight="700" fill="#0c0d0c" text-anchor="middle">Ring device</text>
+  <text x="265" y="152" font-size="11.5" fill="#63675c" text-anchor="middle">Ring Partner API · scope ava.v1:read (read-only)</text>
+
+  <rect x="580" y="100" width="390" height="74" rx="14" fill="#f2f3ee" stroke="#c9cdc0" stroke-width="1.5"/>
+  <text x="775" y="130" font-size="15" font-weight="700" fill="#0c0d0c" text-anchor="middle">CareFlow Ring simulator</text>
+  <text x="775" y="152" font-size="11.5" fill="#63675c" text-anchor="middle">byte-exact v1.1 payloads, real HMAC signatures</text>
+
+  <!-- both sources converge on one signed POST -->
+  <line x1="265" y1="174" x2="265" y2="205" stroke="#0c0d0c" stroke-width="1.5"/>
+  <line x1="775" y1="174" x2="775" y2="205" stroke="#0c0d0c" stroke-width="1.5"/>
+  <line x1="265" y1="205" x2="775" y2="205" stroke="#0c0d0c" stroke-width="1.5"/>
+  <text x="520" y="196" font-size="12.5" font-weight="600" fill="#0c0d0c" text-anchor="middle">POST /ring/webhook · X-Signature: sha256=HMAC(raw body)</text>
+  <line x1="520" y1="205" x2="520" y2="238" stroke="#0c0d0c" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ============ row 2: API Gateway ============ -->
+  <rect x="320" y="240" width="400" height="66" rx="14" fill="#f2f3ee" stroke="#c9cdc0" stroke-width="1.5"/>
+  <text x="520" y="268" font-size="15" font-weight="700" fill="#0c0d0c" text-anchor="middle">Amazon API Gateway (HTTP API)</text>
+  <text x="520" y="290" font-size="11.5" fill="#63675c" text-anchor="middle">HTTPS · must answer inside Ring's 5s budget</text>
+
+  <line x1="520" y1="306" x2="520" y2="348" stroke="#0c0d0c" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ============ row 3: the Lambda, step by step ============ -->
+  <rect x="70" y="350" width="560" height="290" rx="16" fill="#ffffff" stroke="#0c0d0c" stroke-width="2"/>
+  <text x="90" y="380" font-size="15" font-weight="700" fill="#0c0d0c">AWS Lambda — CareFlow API</text>
+
+  <text x="90" y="412" font-size="13" fill="#0c0d0c">1 · verify HMAC over the raw bytes, constant-time</text>
+  <text x="90" y="448" font-size="13" fill="#0c0d0c">2 · dedupe on meta.request_id, so a Ring retry is a no-op</text>
+  <text x="90" y="484" font-size="13" fill="#0c0d0c">3 · normalize to a CareEvent</text>
+  <text x="90" y="520" font-size="13" fill="#0c0d0c">4 · match the care plan — plain code, no model</text>
+
+  <!-- step 5 is the claim the whole diagram exists to make -->
+  <rect x="84" y="538" width="532" height="34" rx="9" fill="#d9f550"/>
+  <text x="96" y="561" font-size="13" font-weight="700" fill="#0c0d0c">5 · CONSENT GATE — no sensitive action passes unapproved</text>
+
+  <text x="90" y="600" font-size="13" fill="#0c0d0c">6 · execute the approved action, then write the audit row</text>
+  <text x="90" y="624" font-size="11" fill="#63675c">one handleRequest serves both local dev and Lambda — a single code path</text>
+
+  <!-- ============ the independent second check ============ -->
+  <rect x="690" y="496" width="280" height="118" rx="14" fill="#ffffff" stroke="#0c0d0c" stroke-width="2"/>
+  <text x="830" y="524" font-size="13.5" font-weight="700" fill="#0c0d0c" text-anchor="middle">@careflow/consent-engine</text>
+  <text x="830" y="546" font-size="11" fill="#63675c" text-anchor="middle">an independent second check,</text>
+  <text x="830" y="562" font-size="11" fill="#63675c" text-anchor="middle">so one bug is never enough</text>
+  <text x="830" y="586" font-size="11" fill="#0c0d0c" text-anchor="middle">observe → offer → choose →</text>
+  <text x="830" y="602" font-size="11" fill="#0c0d0c" text-anchor="middle">confirm → complete</text>
+
+  <line x1="632" y1="555" x2="688" y2="555" stroke="#0c0d0c" stroke-width="1.5"
+        marker-start="url(#arrow-start)" marker-end="url(#arrow)"/>
+  <text x="660" y="547" font-size="10" fill="#63675c" text-anchor="middle">checks</text>
+
+  <!-- ============ row 4: the AWS data and language layer ============ -->
+  <line x1="350" y1="640" x2="350" y2="672" stroke="#0c0d0c" stroke-width="1.5"/>
+  <line x1="255" y1="672" x2="873" y2="672" stroke="#0c0d0c" stroke-width="1.5"/>
+  <line x1="255" y1="672" x2="255" y2="698" stroke="#0c0d0c" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="461" y1="672" x2="461" y2="698" stroke="#0c0d0c" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="667" y1="672" x2="667" y2="698" stroke="#0c0d0c" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="873" y1="672" x2="873" y2="698" stroke="#0c0d0c" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="160" y="700" width="190" height="80" rx="13" fill="#f2f3ee" stroke="#c9cdc0" stroke-width="1.5"/>
+  <text x="255" y="726" font-size="12.5" font-weight="700" fill="#0c0d0c" text-anchor="middle">Amazon DynamoDB</text>
+  <text x="255" y="746" font-size="10.5" fill="#63675c" text-anchor="middle">sessions · timeline · audit</text>
+  <text x="255" y="763" font-size="10.5" fill="#63675c" text-anchor="middle">request_id markers, TTL</text>
+
+  <rect x="366" y="700" width="190" height="80" rx="13" fill="#f2f3ee" stroke="#c9cdc0" stroke-width="1.5"/>
+  <text x="461" y="726" font-size="12.5" font-weight="700" fill="#0c0d0c" text-anchor="middle">Amazon Bedrock</text>
+  <text x="461" y="746" font-size="10.5" fill="#63675c" text-anchor="middle">phrases the turn, extracts</text>
+  <text x="461" y="763" font-size="10.5" fill="#63675c" text-anchor="middle">intent — never decides</text>
+
+  <rect x="572" y="700" width="190" height="80" rx="13" fill="#f2f3ee" stroke="#c9cdc0" stroke-width="1.5"/>
+  <text x="667" y="726" font-size="12.5" font-weight="700" fill="#0c0d0c" text-anchor="middle">Amazon Polly</text>
+  <text x="667" y="746" font-size="10.5" fill="#63675c" text-anchor="middle">neural voice, SSML pacing</text>
+  <text x="667" y="763" font-size="10.5" fill="#63675c" text-anchor="middle">204 → browser speech</text>
+
+  <rect x="778" y="700" width="190" height="80" rx="13" fill="#f2f3ee" stroke="#c9cdc0" stroke-width="1.5"/>
+  <text x="873" y="726" font-size="12.5" font-weight="700" fill="#0c0d0c" text-anchor="middle">AWS Secrets Manager</text>
+  <text x="873" y="746" font-size="10.5" fill="#63675c" text-anchor="middle">the Ring HMAC key</text>
+  <text x="873" y="763" font-size="10.5" fill="#63675c" text-anchor="middle">never an env var</text>
+
+  <!-- ============ row 5: the browser ============ -->
+  <line x1="110" y1="640" x2="110" y2="800" stroke="#0c0d0c" stroke-width="1.5"/>
+  <line x1="110" y1="800" x2="520" y2="800" stroke="#0c0d0c" stroke-width="1.5"/>
+  <line x1="520" y1="800" x2="520" y2="828" stroke="#0c0d0c" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="310" y="792" font-size="11.5" font-weight="600" fill="#0c0d0c" text-anchor="middle">SSE: event: session / event: timeline — REST polling when there is no stream</text>
+
+  <rect x="270" y="830" width="500" height="130" rx="16" fill="#ffffff" stroke="#0c0d0c" stroke-width="2"/>
+  <text x="520" y="858" font-size="15" font-weight="700" fill="#0c0d0c" text-anchor="middle">React web app</text>
+  <text x="520" y="878" font-size="11" fill="#63675c" text-anchor="middle">renders what the backend says; it never decides what is allowed</text>
+
+  <rect x="286" y="898" width="112" height="44" rx="10" fill="#d9f550"/>
+  <text x="342" y="920" font-size="10.5" font-weight="700" fill="#0c0d0c" text-anchor="middle">Patient</text>
+  <text x="342" y="933" font-size="10.5" font-weight="700" fill="#0c0d0c" text-anchor="middle">voice</text>
+
+  <rect x="408" y="898" width="112" height="44" rx="10" fill="#f2f3ee" stroke="#c9cdc0" stroke-width="1.5"/>
+  <text x="464" y="926" font-size="10.5" font-weight="700" fill="#0c0d0c" text-anchor="middle">Caregiver</text>
+
+  <rect x="530" y="898" width="112" height="44" rx="10" fill="#f2f3ee" stroke="#c9cdc0" stroke-width="1.5"/>
+  <text x="586" y="926" font-size="10.5" font-weight="700" fill="#0c0d0c" text-anchor="middle">Timeline</text>
+
+  <rect x="652" y="898" width="112" height="44" rx="10" fill="#f2f3ee" stroke="#c9cdc0" stroke-width="1.5"/>
+  <text x="708" y="926" font-size="10.5" font-weight="700" fill="#0c0d0c" text-anchor="middle">Safety</text>
+
+  <!-- ============ row 6: the hard boundary ============ -->
+  <rect x="70" y="1000" width="900" height="100" rx="16" fill="#ffe8e5" stroke="#ff6b5e" stroke-width="2"/>
+  <text x="520" y="1030" font-size="14" font-weight="700" fill="#0c0d0c" text-anchor="middle">Never — from any state, after any confirmation</text>
+  <text x="520" y="1056" font-size="12.5" fill="#0c0d0c" text-anchor="middle">unlock_door · disarm_alarm · medical_advice · medical_diagnosis · emergency_dispatch</text>
+  <text x="520" y="1079" font-size="11" fill="#63675c" text-anchor="middle">refused at step 5 and again by the consent engine — CareFlow has no door control to give away</text>
+</svg>

@@ -480,7 +480,9 @@ main {
 }
 
 .btn.sm {
-  min-height: 44px;
+  /* 48px, not 44: the brief's floor applies to every control, and "Larger text" is
+     precisely the one a low-vision patient has to hit first. */
+  min-height: 48px;
   padding: 0 1.05rem;
   font-size: 0.88rem;
   font-weight: 700;
@@ -723,6 +725,12 @@ main {
   background: var(--paper);
   border: 1px solid var(--line);
   transition: transform 180ms var(--ease), box-shadow 180ms var(--ease);
+}
+
+button.row {
+  min-height: 48px;
+  text-align: left;
+  cursor: pointer;
 }
 
 button.row:hover {

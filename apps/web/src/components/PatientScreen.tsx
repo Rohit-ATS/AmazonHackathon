@@ -91,7 +91,10 @@ export function PatientScreen({
             disabled={busy || !session || voice.speaking}
             aria-pressed={voice.listening}
           >
-            {voice.listening ? 'Listening… tap to stop' : 'Hold to speak'}
+            {/* A toggle, not a true press-and-hold: holding a button steady is exactly what
+                arthritic or tremoring hands cannot do, and a released key mid-sentence would
+                truncate the turn. The label says what the control actually does. */}
+            {voice.listening ? 'Listening… tap to stop' : 'Tap to speak'}
           </button>
           <button
             className="btn big ghost"
