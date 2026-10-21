@@ -1,0 +1,56 @@
+{
+  "_comment": "Ring Developer Console field values for the CareFlow app. A Ring app is a registration pointing at hosted URLs, not an uploadable bundle — so this file is the source of truth for what goes in each console field, and docs/ring-app.md explains how to register it. Character limits are Ring's.",
+
+  "app": {
+    "name": "CareFlow",
+    "type": "private",
+    "_typeNote": "private: appears under 'My Ring Apps' for connected accounts, no certification required. Switch to 'public' for an Appstore listing, which requires certification.",
+    "scopes": ["ava.v1:read"],
+    "_scopeNote": "Read-only is all CareFlow wants. It cannot unlock a door or view live video, and that limit is part of the product rather than something to work around. Scopes can be added before certification; removing one afterwards requires Ring Support."
+  },
+
+  "urls": {
+    "accountLink": "{BASE_URL}/ring/link",
+    "tokenExchange": "{BASE_URL}/ring/token-exchange",
+    "webhook": "{BASE_URL}/ring/webhook",
+    "defaultRedirect": "{BASE_URL}/ring/redirect",
+    "_note": "Replace {BASE_URL} with the deployed API origin (CDK outputs it as ApiUrl). All four must be HTTPS. GET /ring/status on a running deployment prints these fully resolved."
+  },
+
+  "listing": {
+    "publicName": "CareFlow — Voice-First Care Access",
+    "_publicNameLimit": 50,
+
+    "shortDescription": "Turns your Ring doorbell into a calm conversation that asks what you want to do.",
+    "_shortDescriptionLimit": 125,
+
+    "detailedDescription": "CareFlow helps people receiving care at home handle the front door without a phone or an app to navigate. When your Ring doorbell rings, CareFlow checks your care schedule and tells you out loud who it expects — your nurse, a delivery, or someone unscheduled — then asks what you would like to do. You answer by speaking or by pressing one large button. It can tell your caregiver you need two more minutes, pass on a non-clinical note, or contact someone you trust. It never does any of that without asking you first, and it records every step so your care team can see what happened. CareFlow is not a medical device. It does not give medical advice, identify who is at your door, unlock doors, or contact emergency services.",
+    "_detailedDescriptionLimit": 500,
+
+    "categories": ["Accessibility", "Caretaking", "Access Control"],
+
+    "releaseNotes": "First release. Scheduled-visit matching, consent-gated actions, spoken conversation, and a caregiver handoff record.",
+
+    "compatibility": "Any Ring doorbell or camera that delivers button_press and motion_detected events. Requires an active Ring Protect plan for webhook delivery.",
+
+    "developer": {
+      "name": "CareFlow",
+      "website": "https://github.com/Rohit-ATS/AmazonHackathon",
+      "support": "https://github.com/Rohit-ATS/AmazonHackathon/issues",
+      "privacyPolicy": "https://github.com/Rohit-ATS/AmazonHackathon/blob/main/docs/ring-app.md#privacy",
+      "terms": "https://github.com/Rohit-ATS/AmazonHackathon/blob/main/LICENSE"
+    },
+
+    "_assetsTodo": {
+      "icon": "1024x1024 px, max 2 MB — not yet produced",
+      "mainImage": "not yet produced",
+      "additionalImages": "1 to 5 — screenshots of the patient screen, consent prompt, and timeline would be the obvious three",
+      "video": "optional, MP4, max 50 seconds"
+    }
+  },
+
+  "events": {
+    "subscribed": ["button_press", "motion_detected"],
+    "_note": "Device and account lifecycle events are delivered too and are logged, but deliberately do not start a conversation — waking someone to say a camera reconnected is how an assistant gets unplugged."
+  }
+}

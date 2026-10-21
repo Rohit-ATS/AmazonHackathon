@@ -78,7 +78,12 @@ export function App() {
   // The patient's own plan decides large text until they say otherwise. A setting that
   // only helps once they have found it does not help the people who need it.
   const largeText = largeTextChoice ?? plan?.patient.preferences.largeTextDefault ?? false;
-  const muted = mutedChoice ?? false;
+  /**
+   * Voice is OFF until someone turns it on. A page that starts talking the moment it
+   * loads is hostile — during development, during a demo rehearsal, and to anyone who
+   * opens it next to a sleeping person. Press "Voice on" to hear it.
+   */
+  const muted = mutedChoice ?? true;
 
   // Scroll reveals and the sticky-header state. Both no-op under prefers-reduced-motion.
   useReveal();
@@ -234,12 +239,14 @@ export function App() {
             {largeText ? 'Normal text' : 'Larger text'}
           </button>
 
+          {/* Labelled by the action it performs, not the state it is in. "Voice off" as a
+              button is ambiguous — it reads as both a status and a command. */}
           <button
-            className="btn sm primary"
+            className={`btn sm ${muted ? 'ghost' : 'primary'}`}
             onClick={() => chooseMuted(!muted)}
-            aria-pressed={muted}
+            aria-pressed={!muted}
           >
-            {muted ? 'Voice off' : 'Voice on'}
+            {muted ? 'Turn voice on' : 'Turn voice off'}
           </button>
         </div>
       </header>
