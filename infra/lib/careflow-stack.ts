@@ -20,7 +20,7 @@ import {
   Stack,
   type StackProps,
 } from 'aws-cdk-lib';
-import { HttpApi, CorsHttpMethod, HttpMethod } from 'aws-cdk-lib/aws-apigatewayv2';
+import { CfnStage, HttpApi, CorsHttpMethod, HttpMethod } from 'aws-cdk-lib/aws-apigatewayv2';
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import { AttributeType, BillingMode, Table, TableEncryption } from 'aws-cdk-lib/aws-dynamodb';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
@@ -70,6 +70,8 @@ export class CareFlowStack extends Stack {
       'RingHmacKey',
       props.ringHmacSecretName,
     );
+    const apiAuthSecret = new Secret(this, 'ApiAuthToken', { generateSecretString: { passwordLength: 48 } });
+    const mcpAuthSecret = new Secret(this, 'McpAuthToken', { generateSecretString: { passwordLength: 48 } });
 
     // ---------------------------------------------------------------------
     // Compute
@@ -86,12 +88,15 @@ export class CareFlowStack extends Stack {
       timeout: Duration.seconds(10),
       // Enough that a cold start is not the thing that blows the Ring budget.
       memorySize: 1024,
+      reservedConcurrentExecutions: 10,
       environment: {
         CAREFLOW_TABLE: table.tableName,
         CAREFLOW_DEMO_MODE: 'true',
         CAREFLOW_TTS: 'polly',
         POLLY_VOICE_ID: 'Joanna',
         RING_HMAC_SECRET_NAME: props.ringHmacSecretName,
+        CAREFLOW_API_TOKEN_SECRET_NAME: apiAuthSecret.secretName,
+        CAREFLOW_MCP_TOKEN_SECRET_NAME: mcpAuthSecret.secretName,
         ...(props.bedrockModelId ? { BEDROCK_MODEL_ID: props.bedrockModelId } : {}),
         NODE_OPTIONS: '--enable-source-maps',
       },
@@ -115,6 +120,8 @@ export class CareFlowStack extends Stack {
 
     table.grantReadWriteData(api);
     ringHmacSecret.grantRead(api);
+    apiAuthSecret.grantRead(api);
+    mcpAuthSecret.grantRead(api);
 
     // Bedrock: invoke only, and only on the model we configured. A wildcard here would be
     // the easy option and would also let a prompt-injected agent reach anything in the
@@ -150,10 +157,14 @@ export class CareFlowStack extends Stack {
       corsPreflight: {
         allowOrigins: [props.allowedOrigin ?? '*'],
         allowMethods: [CorsHttpMethod.GET, CorsHttpMethod.POST, CorsHttpMethod.OPTIONS],
-        allowHeaders: ['content-type', 'x-signature', 'x-careflow-simulated'],
+        allowHeaders: ['authorization', 'content-type', 'x-signature', 'x-careflow-simulated'],
         maxAge: Duration.hours(1),
       },
     });
+    const stage = httpApi.defaultStage?.node.defaultChild as CfnStage | undefined;
+    if (stage) {
+      stage.defaultRouteSettings = { throttlingBurstLimit: 50, throttlingRateLimit: 25 };
+    }
 
     const integration = new HttpLambdaIntegration('ApiIntegration', api);
 
@@ -166,5 +177,7 @@ export class CareFlowStack extends Stack {
     new CfnOutput(this, 'ApiUrl', { value: httpApi.apiEndpoint });
     new CfnOutput(this, 'RingWebhookUrl', { value: `${httpApi.apiEndpoint}/ring/webhook` });
     new CfnOutput(this, 'TableName', { value: table.tableName });
+    new CfnOutput(this, 'ApiAuthSecretName', { value: apiAuthSecret.secretName });
+    new CfnOutput(this, 'McpAuthSecretName', { value: mcpAuthSecret.secretName });
   }
 }

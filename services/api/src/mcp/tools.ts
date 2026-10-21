@@ -105,6 +105,33 @@ export class ToolRegistry {
     }
   }
 
+  async confirmFromHuman(id: string, affirmative: boolean): Promise<ToolResult> {
+    this.sweepPending();
+    const pending = this.pending.get(id);
+    if (!pending) {
+      return toolError('That confirmation has expired or was already answered. Nothing was done.');
+    }
+    this.pending.delete(id);
+    if (!affirmative) {
+      pending.machine.confirm(false);
+      return toolResult('Cancelled. Nothing was sent.', { status: 'cancelled', willDo: pending.action.summary });
+    }
+    pending.machine.confirm(true);
+    pending.machine.assertExecutable(toDescriptor(pending.action));
+    const plan = await this.deps.getCarePlan();
+    const result = await executeAction(pending.action, {
+      session: { sessionId: `mcp:${pending.sessionId}`, mode: 'companion', state: 'acting', turns: [], results: [] } as never,
+      plan,
+      confirmed: pending.action,
+      demoMode: this.deps.demoMode,
+      log: this.deps.log,
+    });
+    pending.machine.complete({ ok: result.ok, detail: result.detail });
+    await this.deps.store.appendAudit({ sessionId: `mcp:${pending.sessionId}`, at: result.at, actor: 'careflow', event: `action_executed:${pending.action.type}`, from: 'awaiting_confirmation', to: 'done', action: pending.action, result });
+    await this.deps.store.appendTimeline({ sessionId: `mcp:${pending.sessionId}`, kind: 'action', at: result.at, text: result.detail, detail: `Confirmed through the authenticated patient channel. Channel: ${result.via}.` });
+    return toolResult(result.detail, { status: 'done', action: pending.action.type, via: result.via, at: result.at });
+  }
+
   private register(definition: ToolDefinition, handler: Handler): void {
     this.tools.set(definition.name, { definition, handler });
   }
@@ -120,6 +147,10 @@ export class ToolRegistry {
    * so the message that gets sent is necessarily the message the person approved.
    */
   private requireConfirmation(action: SensitiveAction, ctx: ToolContext): ToolResult {
+    this.sweepPending();
+    if (this.pending.size >= 100) {
+      return toolError('Too many actions are awaiting confirmation. Try again later.');
+    }
     const machine = createConsentMachine<SensitiveAction>({
       blockedActions: ['unlock_door', 'disarm_alarm', 'medical_advice', 'emergency_dispatch'],
       confirmationTtlMs: CONFIRMATION_TTL_MS,
@@ -143,8 +174,6 @@ export class ToolRegistry {
       expiresAt: Date.now() + CONFIRMATION_TTL_MS,
       sessionId: ctx.sessionId,
     });
-    this.sweepPending();
-
     const ask = `Just to confirm — should I ${action.summary}?`;
     return toolResult(
       `Not done yet. Ask them, out loud, exactly this: "${ask}" ` +
@@ -798,7 +827,7 @@ export class ToolRegistry {
         name: 'confirm_action',
         title: 'Confirm or cancel',
         description:
-          'Carry out, or cancel, an action that is waiting for the person to confirm. Only call this after you have asked them out loud and heard an answer. Never call it on their behalf, and never guess — if you are unsure what they meant, ask again.',
+          'Cancel an action after the person declines. Affirmative approval is accepted only through the separate authenticated CareFlow patient interface, never from an MCP host.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -827,68 +856,13 @@ export class ToolRegistry {
           );
         }
 
-        // Single use, whatever the answer — so a "yes" cannot be replayed.
-        this.pending.delete(id);
-
-        if (!args.affirmative) {
-          pending.machine.confirm(false);
-          return toolResult(`Cancelled. Nothing was sent.`, {
-            status: 'cancelled',
-            willDo: pending.action.summary,
-          });
+        if (pending.sessionId !== ctx.sessionId) {
+          return toolError('That confirmation belongs to a different session. Nothing was done.');
         }
-
-        pending.machine.confirm(true);
-        const descriptor = toDescriptor(pending.action);
-        // Last line of defence: throws unless this is exactly the approved action.
-        pending.machine.assertExecutable(descriptor);
-
-        const plan = await this.deps.getCarePlan();
-        const result = await executeAction(pending.action, {
-          // The consent machine has already done the gating, so the session shim exists
-          // only to satisfy the shared executor's shape.
-          session: {
-            sessionId: `mcp:${ctx.sessionId}`,
-            mode: 'companion',
-            state: 'acting',
-            turns: [],
-            results: [],
-          } as never,
-          plan,
-          confirmed: pending.action,
-          demoMode: this.deps.demoMode,
-          log: this.deps.log,
-        });
-        pending.machine.complete({ ok: result.ok, detail: result.detail });
-
-        await this.deps.store.appendAudit({
-          sessionId: `mcp:${ctx.sessionId}`,
-          at: result.at,
-          actor: 'careflow',
-          event: `action_executed:${pending.action.type}`,
-          from: 'awaiting_confirmation',
-          to: 'done',
-          action: pending.action,
-          result,
-        });
-        await this.deps.store.appendTimeline({
-          sessionId: `mcp:${ctx.sessionId}`,
-          kind: 'action',
-          at: result.at,
-          text: result.detail,
-          detail: `Confirmed by the person before anything happened. Channel: ${result.via}.`,
-        });
-
-        this.deps.log('mcp: action executed after confirmation', {
-          action: pending.action.type,
-        });
-
-        return toolResult(result.detail, {
-          status: 'done',
-          action: pending.action.type,
-          via: result.via,
-          at: result.at,
-        });
+        if (args.affirmative) {
+          return toolError('Approval must be completed through the separate authenticated patient channel. Nothing was done.');
+        }
+        return this.confirmFromHuman(id, false);
       },
     );
   }

@@ -11,6 +11,7 @@ import type {
   CarePlan,
   SafetyPanel,
 } from '@careflow/shared';
+import { timingSafeEqual } from 'node:crypto';
 import {
   AI_DISCLOSURE,
   BLOCKED_CAPABILITIES,
@@ -90,14 +91,18 @@ export async function handleRequest(ctx: AppContext, req: AppRequest): Promise<A
     // --- Ring Appstore app surface ---------------------------------------
     // The four URLs registered in the Ring Developer Console. See lib/ringapp.ts.
     if (method === 'POST' && path === '/ring/webhook') return await ringWebhook(ctx, req);
-    if (method === 'GET' && path === '/ring/link') return await ringLink(ctx);
     if (method === 'GET' && path === '/ring/oauth/callback') return await ringCallback(ctx, req);
+    if (method === 'GET' && path === '/ring/link') return await ringLink(ctx);
     if (method === 'POST' && path === '/ring/token-exchange') return await ringTokenExchange(ctx, req);
     if (method === 'GET' && path === '/ring/redirect') {
-      // Default Redirect URL: where Ring sends the user when no platform-specific link
-      // applies. Nothing to do but hand them back to the app.
       return { status: 302, headers: { location: ctx.config.webAppUrl }, body: '' };
     }
+    if (method === 'GET' && path === '/healthz') return json(200, health(ctx));
+
+    if (!authorized(req.headers.authorization, ctx.config.apiAuthToken)) {
+      return error(401, 'unauthorized', 'A valid CareFlow bearer token is required.');
+    }
+
     if (method === 'GET' && path === '/ring/status') {
       const tokens = await ctx.store.getRingTokens();
       return json(200, {
@@ -116,7 +121,13 @@ export async function handleRequest(ctx: AppContext, req: AppRequest): Promise<A
     // --- care plan + safety ----------------------------------------------
     if (method === 'GET' && path === '/api/care-plan') return json(200, ctx.carePlan);
     if (method === 'GET' && path === '/api/safety') return json(200, safetyPanel(ctx));
-    if (method === 'GET' && path === '/healthz') return json(200, health(ctx));
+    if (method === 'POST' && path === '/api/mcp/confirm' && ctx.mcp) {
+      const body = parseJsonBody<{ confirmationId?: string; affirmative?: boolean }>(req);
+      if (!body.confirmationId || typeof body.affirmative !== 'boolean') {
+        return error(400, 'invalid_confirmation', 'Provide confirmationId and affirmative.');
+      }
+      return json(200, await ctx.mcp.confirmFromHuman(body.confirmationId, body.affirmative));
+    }
 
     // --- sessions ---------------------------------------------------------
     if (method === 'GET' && path === '/api/sessions') {
@@ -183,6 +194,16 @@ export async function handleRequest(ctx: AppContext, req: AppRequest): Promise<A
     ctx.log('unhandled error', { error: err instanceof Error ? err.stack : String(err) });
     return error(500, 'internal_error', 'Something went wrong. Check the logs.');
   }
+}
+
+function authorized(header: string | undefined, expected: string | undefined): boolean {
+  // Local development intentionally remains credential-free. Lambda refuses to start
+  // without credentials, so an omitted token can never fail open in deployment.
+  if (!expected) return true;
+  if (!header?.startsWith('Bearer ')) return false;
+  const supplied = Buffer.from(header.slice(7));
+  const wanted = Buffer.from(expected);
+  return supplied.length === wanted.length && timingSafeEqual(supplied, wanted);
 }
 
 // ---------------------------------------------------------------------------

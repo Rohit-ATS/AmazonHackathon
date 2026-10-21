@@ -93,6 +93,10 @@ async function build(): Promise<Runtime> {
       'http://127.0.0.1:5173',
       ...(process.env.CAREFLOW_MCP_ORIGINS ?? '').split(',').map((o) => o.trim()).filter(Boolean),
     ],
+    {
+      authToken: config.mcpAuthToken,
+      maxSessions: 100,
+    },
   );
 
   return { config, store, sessions, carePlan, log, bus, mcp };

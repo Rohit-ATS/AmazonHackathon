@@ -30,9 +30,13 @@ export class ApiError extends Error {
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const token = sessionStorage.getItem('careflow.apiToken');
   const res = await fetch(path, {
     method,
-    headers: body === undefined ? {} : { 'content-type': 'application/json' },
+    headers: {
+      ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+    },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 
@@ -110,6 +114,8 @@ export const api = {
     }),
   cancel: (sessionId: string) =>
     request<TurnResponse>('POST', `/api/sessions/${encodeURIComponent(sessionId)}/cancel`),
+  approveMcpAction: (confirmationId: string, affirmative: boolean) =>
+    request<Record<string, unknown>>('POST', '/api/mcp/confirm', { confirmationId, affirmative }),
 
   fireRingEvent: (scenario: 'scheduled' | 'unexpected' | 'delivery') =>
     request<DemoEventResponse>('POST', '/api/demo/ring-event', { scenario }),
@@ -124,9 +130,13 @@ export const api = {
    * no AWS credentials at all.
    */
   async tts(text: string): Promise<Blob | undefined> {
+    const token = sessionStorage.getItem('careflow.apiToken');
     const res = await fetch('/api/tts', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: {
+        'content-type': 'application/json',
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify({ text }),
     });
     if (res.status === 204 || !res.ok) return undefined;

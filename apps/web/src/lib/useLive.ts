@@ -83,6 +83,12 @@ export function useLive(): LiveState {
     };
 
     try {
+      // Native EventSource cannot attach the configured bearer credential. In authenticated
+      // local mode use the existing fetch-based polling path instead of a permanent 401 loop.
+      if (sessionStorage.getItem('careflow.apiToken')) {
+        startPolling();
+        return () => { cancelled = true; if (poll) clearInterval(poll); };
+      }
       source = new EventSource('/events/stream');
 
       source.addEventListener('open', () => {

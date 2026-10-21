@@ -31,7 +31,7 @@ If someone is struggling:
 - If there is any suggestion of immediate danger, tell them to call emergency services directly. You cannot call on their behalf and must never imply that you have.
 
 Doing things:
-- Anything that reaches another person or a pharmacy requires their explicit permission. Those tools return a confirmation request with the exact sentence to say. Say it, wait for an answer, then call confirm_action.
+- Anything that reaches another person or a pharmacy requires their explicit permission. Those tools return a confirmation request with the exact sentence to say. Say it and wait; the separate CareFlow patient interface records approval. You may call confirm_action only to record a refusal.
 - Never guess at a yes. If you are unsure what they meant, ask again.
 - When you report back, say what actually happened: a refill is a request the pharmacy confirms separately, and an appointment is a request to humans, not a booking.`;
 
@@ -39,6 +39,7 @@ export function createMcpServer(
   deps: ToolDeps,
   version: string,
   allowedOrigins: string[],
+  security: { authToken?: string; maxSessions?: number } = {},
 ): McpServer {
   return new McpServer({
     tools: new ToolRegistry(deps),
@@ -46,6 +47,7 @@ export function createMcpServer(
     serverVersion: version,
     instructions: COMPANION_INSTRUCTIONS,
     allowedOrigins,
+    ...security,
     log: deps.log,
   });
 }

@@ -18,7 +18,7 @@
  * the part a client will actually exercise. Writing them out is the proof.
  */
 
-import { randomUUID } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import {
   ASSUMED_PROTOCOL_VERSION,
   ErrorCode,
@@ -66,6 +66,8 @@ export interface McpServerOptions {
   log: (msg: string, meta?: Record<string, unknown>) => void;
   /** Instructions surfaced to the host model at initialize. */
   instructions: string;
+  authToken?: string;
+  maxSessions?: number;
 }
 
 /** Sessions live in memory: they are conversational state, not data worth persisting. */
@@ -85,6 +87,12 @@ export class McpServer {
 
   async handle(req: McpRequestInput): Promise<McpResponse> {
     this.sweep();
+
+    if (!this.authorized(req.headers.authorization, this.opts.authToken)) {
+      return this.json(401, failure(null, ErrorCode.InvalidRequest, 'Authentication required.'), {
+        'www-authenticate': 'Bearer realm="careflow-mcp"',
+      });
+    }
 
     const origin = req.headers['origin'];
     if (!this.originAllowed(origin)) {
@@ -138,6 +146,9 @@ export class McpServer {
 
     // `initialize` is the one request allowed without a session.
     const isInitialize = isRequest(message) && message.method === 'initialize';
+    if (isInitialize && this.sessions.size >= (this.opts.maxSessions ?? 100)) {
+      return this.json(429, failure(isRequest(message) ? message.id : null, ErrorCode.InternalError, 'Too many active sessions.'));
+    }
     if (!isInitialize) {
       const sessionCheck = this.requireSession(req);
       if ('error' in sessionCheck) return sessionCheck.error;
@@ -385,6 +396,20 @@ export class McpServer {
     const allowed = this.opts.allowedOrigins ?? [];
     if (allowed.includes('*')) return true;
     return allowed.includes(origin);
+  }
+
+  private authorized(supplied: string | undefined, expected: string | undefined): boolean {
+    if (!expected) return true;
+    const raw = supplied?.startsWith('Bearer ') ? supplied.slice(7) : supplied;
+    if (!raw) return false;
+    const actual = Buffer.from(raw);
+    const wanted = Buffer.from(expected);
+    return actual.length === wanted.length && timingSafeEqual(actual, wanted);
+  }
+
+  /** Separate authenticated patient/UI channel; never reachable through tools/call. */
+  confirmFromHuman(confirmationId: string, affirmative: boolean) {
+    return this.opts.tools.confirmFromHuman(confirmationId, affirmative);
   }
 
   private sweep(): void {

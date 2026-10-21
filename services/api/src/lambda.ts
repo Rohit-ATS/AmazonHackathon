@@ -14,7 +14,7 @@ interface ApiGatewayV2Event {
   rawPath: string;
   rawQueryString?: string;
   headers: Record<string, string | undefined>;
-  requestContext: { http: { method: string; path: string } };
+  requestContext: { http: { method: string; path: string; sourceIp?: string } };
   body?: string;
   isBase64Encoded?: boolean;
 }
@@ -27,6 +27,15 @@ interface ApiGatewayV2Result {
 }
 
 export async function handler(event: ApiGatewayV2Event): Promise<ApiGatewayV2Result> {
+  const encodedBytes = event.body ? Buffer.byteLength(event.body, 'utf8') : 0;
+  const estimatedBytes = event.isBase64Encoded ? Math.floor((encodedBytes * 3) / 4) : encodedBytes;
+  if (estimatedBytes > 256 * 1024) {
+    return {
+      statusCode: 413,
+      headers: { 'content-type': 'application/json; charset=utf-8' },
+      body: JSON.stringify({ error: { code: 'payload_too_large', message: 'Body too large.' } }),
+    };
+  }
   const runtime = await getRuntime();
 
   // Must be the exact bytes Ring signed. API Gateway base64-encodes binary bodies, and

@@ -9,12 +9,13 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { handleRequest, type AppRequest } from './app.js';
 import { getRuntime } from './context.js';
+import { timingSafeEqual } from 'node:crypto';
 
 const CORS = {
   // Dev only: the Vite frontend runs on another port, and locking this down would mean
   // Lee cannot build anything. The deployed stack sets an explicit origin instead.
   'access-control-allow-origin': '*',
-  'access-control-allow-headers': 'content-type,x-signature,x-careflow-simulated',
+  'access-control-allow-headers': 'authorization,content-type,x-signature,x-careflow-simulated',
   'access-control-allow-methods': 'GET,POST,OPTIONS',
 };
 
@@ -44,6 +45,11 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
   // Server-sent events: the live feed the patient screen and dashboard both read.
   if (req.method === 'GET' && url.pathname === '/events/stream') {
+    if (!authorized(req.headers.authorization, runtime.config.apiAuthToken)) {
+      res.writeHead(401, { ...CORS, 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: { code: 'unauthorized', message: 'A valid CareFlow bearer token is required.' } }));
+      return;
+    }
     streamEvents(url, res);
     return;
   }
@@ -69,6 +75,14 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   res.writeHead(result.status, { ...CORS, ...result.headers });
   res.end(result.body);
 });
+
+function authorized(header: string | undefined, expected: string | undefined): boolean {
+  if (!expected) return true;
+  if (!header?.startsWith('Bearer ')) return false;
+  const actual = Buffer.from(header.slice(7));
+  const wanted = Buffer.from(expected);
+  return actual.length === wanted.length && timingSafeEqual(actual, wanted);
+}
 
 function streamEvents(url: URL, res: ServerResponse) {
   res.writeHead(200, {

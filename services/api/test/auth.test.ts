@@ -1,0 +1,57 @@
+import { describe, expect, it } from 'vitest';
+import { handleRequest, type AppContext, type AppRequest } from '../src/app.js';
+import type { Config } from '../src/lib/config.js';
+
+const request = (path: string, authorization?: string, body?: unknown): AppRequest => ({
+  method: body === undefined ? 'GET' : 'POST',
+  path,
+  query: {},
+  headers: authorization ? { authorization } : {},
+  rawBody: body === undefined ? Buffer.alloc(0) : Buffer.from(JSON.stringify(body)),
+});
+
+const context = {
+  config: {
+    apiAuthToken: 'api-test-token',
+    storage: 'local',
+    tts: 'browser',
+    demoMode: true,
+    requireSignatureVerification: true,
+    awsRegion: 'us-east-1',
+    pollyVoiceId: 'Joanna',
+  } as Config,
+  carePlan: { patient: { displayName: 'Test' }, visits: [] },
+  log: () => {},
+  mcp: {
+    confirmFromHuman: async (confirmationId: string, affirmative: boolean) => ({
+      content: [{ type: 'text', text: 'approved' }],
+      structuredContent: { confirmationId, affirmative, status: 'done' },
+    }),
+  },
+} as unknown as AppContext;
+
+describe('API authentication boundary', () => {
+  it('rejects protected care data without a bearer token', async () => {
+    const result = await handleRequest(context, request('/api/care-plan'));
+    expect(result.status).toBe(401);
+  });
+
+  it('rejects an incorrect token and accepts the configured token', async () => {
+    expect((await handleRequest(context, request('/api/care-plan', 'Bearer wrong'))).status).toBe(401);
+    expect((await handleRequest(context, request('/api/care-plan', 'Bearer api-test-token'))).status).toBe(200);
+  });
+
+  it('keeps health public without exposing care records', async () => {
+    const result = await handleRequest(context, request('/healthz'));
+    expect(result.status).toBe(200);
+    expect(result.body).not.toContain('Test');
+  });
+
+  it('accepts MCP approval only through the API-authenticated patient channel', async () => {
+    const body = { confirmationId: 'confirmation-1', affirmative: true };
+    expect((await handleRequest(context, request('/api/mcp/confirm', undefined, body))).status).toBe(401);
+    const approved = await handleRequest(context, request('/api/mcp/confirm', 'Bearer api-test-token', body));
+    expect(approved.status).toBe(200);
+    expect(approved.body).toContain('confirmation-1');
+  });
+});

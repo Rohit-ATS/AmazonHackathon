@@ -39,6 +39,9 @@ export interface Config {
   /** Refuse to start if signature verification would be off in a deployed environment. */
   requireSignatureVerification: boolean;
   demoMode: boolean;
+  /** Bearer credentials are optional for local development and mandatory in Lambda. */
+  apiAuthToken?: string;
+  mcpAuthToken?: string;
 }
 
 function env(name: string): string | undefined {
@@ -81,6 +84,10 @@ export function loadConfig(): Config {
   if (clientId) config.ringClientId = clientId;
   const clientSecret = env('RING_CLIENT_SECRET');
   if (clientSecret) config.ringClientSecret = clientSecret;
+  const apiAuthToken = env('CAREFLOW_API_TOKEN');
+  if (apiAuthToken) config.apiAuthToken = apiAuthToken;
+  const mcpAuthToken = env('CAREFLOW_MCP_TOKEN');
+  if (mcpAuthToken) config.mcpAuthToken = mcpAuthToken;
 
   if (isLambda && hmacKey.startsWith('careflow-local-dev') && !env('RING_HMAC_SECRET_NAME')) {
     // Fail loudly rather than quietly accepting unsigned webhooks in a deployed service.
@@ -102,9 +109,9 @@ export function loadConfig(): Config {
  */
 export async function resolveSecrets(config: Config): Promise<Config> {
   const secretName = process.env.RING_HMAC_SECRET_NAME;
-  if (!secretName || process.env.RING_HMAC_KEY) return config;
+  let resolved = config;
 
-  try {
+  if (secretName && !process.env.RING_HMAC_KEY) try {
     const { SecretsManagerClient, GetSecretValueCommand } = await import(
       '@aws-sdk/client-secrets-manager'
     );
@@ -121,7 +128,7 @@ export async function resolveSecrets(config: Config): Promise<Config> {
     } catch {
       // Not JSON; the raw string is the key.
     }
-    return { ...config, ringHmacKey: key };
+    resolved = { ...resolved, ringHmacKey: key };
   } catch (err) {
     // Starting with the dev key in a deployed environment would mean accepting webhooks
     // that Ring did not sign. Refuse instead.
@@ -131,4 +138,30 @@ export async function resolveSecrets(config: Config): Promise<Config> {
       }`,
     );
   }
+
+  for (const [secretEnv, valueEnv, field] of [
+    ['CAREFLOW_API_TOKEN_SECRET_NAME', 'CAREFLOW_API_TOKEN', 'apiAuthToken'],
+    ['CAREFLOW_MCP_TOKEN_SECRET_NAME', 'CAREFLOW_MCP_TOKEN', 'mcpAuthToken'],
+  ] as const) {
+    const name = process.env[secretEnv];
+    if (!name || process.env[valueEnv]) continue;
+    try {
+      const { SecretsManagerClient, GetSecretValueCommand } = await import('@aws-sdk/client-secrets-manager');
+      const client = new SecretsManagerClient({ region: config.awsRegion });
+      const res = await client.send(new GetSecretValueCommand({ SecretId: name }));
+      if (!res.SecretString) throw new Error('secret has no string value');
+      resolved = { ...resolved, [field]: res.SecretString };
+    } catch (err) {
+      throw new Error(`Could not read ${field} from secret "${name}": ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  if (process.env.AWS_LAMBDA_FUNCTION_NAME &&
+      (!resolved.apiAuthToken || !resolved.mcpAuthToken)) {
+    throw new Error('Deployed mode requires distinct API and MCP credentials.');
+  }
+  if (resolved.apiAuthToken && resolved.apiAuthToken === resolved.mcpAuthToken) {
+    throw new Error('API and MCP credentials must be different.');
+  }
+  return resolved;
 }

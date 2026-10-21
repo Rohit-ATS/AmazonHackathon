@@ -78,6 +78,7 @@ function makeServer(): McpServer {
     },
     '0.0.0-test',
     ['https://allowed.example'],
+    { authToken: 'mcp-test-token', maxSessions: 100 },
   );
 }
 
@@ -94,6 +95,7 @@ async function post(
     headers: {
       accept: 'application/json, text/event-stream',
       'content-type': 'application/json',
+      authorization: 'Bearer mcp-test-token',
       ...(sessionId ? { 'mcp-session-id': sessionId } : {}),
       'mcp-protocol-version': PROTOCOL,
       ...headers,
@@ -110,7 +112,7 @@ async function rpc(method: string, params?: Record<string, unknown>) {
 async function initialize() {
   const res = await server.handle({
     method: 'POST',
-    headers: { accept: 'application/json, text/event-stream' },
+    headers: { accept: 'application/json, text/event-stream', authorization: 'Bearer mcp-test-token' },
     rawBody: Buffer.from(
       JSON.stringify({
         jsonrpc: '2.0',
@@ -124,14 +126,22 @@ async function initialize() {
   return { status: res.status, body: JSON.parse(res.body), headers: res.headers };
 }
 
-async function callTool(name: string, args: Record<string, unknown> = {}) {
-  const res = await rpc('tools/call', { name, arguments: args });
-  const result = res.body.result;
+async function callTool(
+  name: string,
+  args: Record<string, unknown> = {},
+  headers: Record<string, string> = {},
+) {
+  const res = await post(
+    { jsonrpc: '2.0', id: ++id, method: 'tools/call', params: { name, arguments: args } },
+    headers,
+  );
+  const body = JSON.parse(res.body || '{}');
+  const result = body.result;
   return {
     isError: Boolean(result?.isError),
     text: (result?.content ?? []).map((c: { text?: string }) => c.text).join('\n'),
     structured: result?.structuredContent as Record<string, unknown> | undefined,
-    error: res.body.error,
+    error: body.error,
   };
 }
 
@@ -142,6 +152,14 @@ beforeEach(async () => {
 });
 
 describe('Streamable HTTP transport', () => {
+  it('rejects initialize without the MCP bearer credential', async () => {
+    const res = await server.handle({
+      method: 'POST',
+      headers: { accept: 'application/json, text/event-stream' },
+      rawBody: Buffer.from(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize' })),
+    });
+    expect(res.status).toBe(401);
+  });
   it('assigns a session id at initialize and negotiates the protocol version', async () => {
     const fresh = makeServer();
     server = fresh;
@@ -166,7 +184,7 @@ describe('Streamable HTTP transport', () => {
   it('returns 404 once a session is terminated, so the client re-initializes', async () => {
     const deleted = await server.handle({
       method: 'DELETE',
-      headers: { 'mcp-session-id': sessionId },
+      headers: { 'mcp-session-id': sessionId, authorization: 'Bearer mcp-test-token' },
       rawBody: Buffer.alloc(0),
     });
     expect(deleted.status).toBe(204);
@@ -249,6 +267,28 @@ describe('tools/list', () => {
 });
 
 describe('the consent gate', () => {
+  it('requires the separate authenticated patient channel', async () => {
+    const staged = await callTool('message_contact', { contactId: 'con_daughter', message: 'Hello.' });
+    const result = await callTool(
+      'confirm_action',
+      { confirmationId: String(staged.structured?.confirmationId), affirmative: true },
+    );
+    expect(result.isError).toBe(true);
+    expect(result.text).toContain('separate authenticated patient channel');
+  });
+
+  it('does not allow another MCP session to redeem a confirmation', async () => {
+    const staged = await callTool('message_contact', { contactId: 'con_daughter', message: 'Hello.' });
+    const confirmationId = String(staged.structured?.confirmationId);
+    const ownerSession = sessionId;
+    await initialize();
+    const rejected = await callTool('confirm_action', { confirmationId, affirmative: true });
+    expect(rejected.isError).toBe(true);
+    expect(rejected.text).toContain('different session');
+    sessionId = ownerSession;
+    const accepted = await server.confirmFromHuman(confirmationId, true);
+    expect(accepted.structuredContent?.status).toBe('done');
+  });
   it('does not send a message, it asks first', async () => {
     const result = await callTool('message_contact', {
       contactId: 'con_daughter',
@@ -268,9 +308,9 @@ describe('the consent gate', () => {
     });
     const confirmationId = String(staged.structured?.confirmationId);
 
-    const done = await callTool('confirm_action', { confirmationId, affirmative: true });
-    expect(done.structured?.status).toBe('done');
-    expect(done.text).toContain('Daughter Daughter');
+    const done = await server.confirmFromHuman(confirmationId, true);
+    expect(done.structuredContent?.status).toBe('done');
+    expect(done.content.map((part) => part.type === 'text' ? part.text : '').join('\n')).toContain('Daughter Daughter');
   });
 
   it('sends nothing when the person says no', async () => {
@@ -296,8 +336,8 @@ describe('the consent gate', () => {
     });
     const confirmationId = String(staged.structured?.confirmationId);
 
-    await callTool('confirm_action', { confirmationId, affirmative: true });
-    const replay = await callTool('confirm_action', { confirmationId, affirmative: true });
+    await server.confirmFromHuman(confirmationId, true);
+    const replay = await server.confirmFromHuman(confirmationId, true);
 
     // A yes is good once. Otherwise a retried request sends twice.
     expect(replay.isError).toBe(true);
