@@ -24,6 +24,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { AgentTurn, CarePlan, CareSession } from '@careflow/shared';
 import type { VoiceState } from '../lib/useVoice.js';
+import { useMicLevel } from '../lib/useMicLevel.js';
+import { SiriOrb } from './SiriOrb.js';
 
 interface Props {
   session: CareSession | undefined;
@@ -56,6 +58,9 @@ export function PatientScreen({
 }: Props) {
   const logRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState('');
+  // Explains, in the thread, why a message could not go anywhere yet.
+  const [notice, setNotice] = useState<string>();
+  const level = useMicLevel(voice.listening);
 
   // Keep the newest turn in view. Without this the most important line is the one just off
   // the bottom of the thread.
@@ -68,12 +73,32 @@ export function PatientScreen({
   const awaitingConfirmation = state === 'awaiting_confirmation' && session?.pendingAction;
   const options = session?.options ?? lastTurn?.options ?? [];
   const closed = state === 'done' || state === 'cancelled' || state === 'timed_out';
-  const canSend = Boolean(session) && !busy && !closed;
+  // The bar is always usable. What changes is whether there is a conversation to deliver
+  // into — CareFlow's sessions are opened by a door event or by the help button, and there
+  // is no endpoint to start one from a typed line.
+  const canDeliver = Boolean(session) && !busy && !closed;
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
     const text = draft.trim();
-    if (!text || !canSend) return;
+    if (!text || busy) return;
+
+    if (!canDeliver) {
+      // Saying nothing would be worse than saying this. The line is a notice rather than an
+      // agent bubble: the agent did not speak, and a message styled as its own words when
+      // the backend never produced them would be a small lie in a product whose whole claim
+      // is that the transcript is real.
+      setNotice(
+        closed
+          ? 'That conversation has finished. CareFlow will start a new one the next time ' +
+              'someone is at your door, or you can press “I need help”.'
+          : 'CareFlow starts a conversation when someone is at your door. Press “I need ' +
+              'help” below to start one now, and anything you type will go to it.',
+      );
+      return;
+    }
+
+    setNotice(undefined);
     setDraft('');
     onSay(text);
   }
@@ -124,6 +149,12 @@ export function PatientScreen({
           </div>
         )}
 
+        {notice && (
+          <p className="chat-notice" role="status">
+            {notice}
+          </p>
+        )}
+
         {session?.turns.map((turn) => (
           <div
             key={turn.turnId}
@@ -138,6 +169,39 @@ export function PatientScreen({
           <div className="bubble patient interim">
             <span className="who">You</span>
             {voice.interim}…
+          </div>
+        )}
+
+        {awaitingConfirmation && session?.pendingAction && (
+          <div className="consent" aria-labelledby="consent-heading">
+            <div className="consent-label" id="consent-heading">
+              Your approval is needed
+            </div>
+            <div className="consent-action">CareFlow will {session.pendingAction.summary}.</div>
+            {session.pendingAction.message && (
+              <div className="small muted">Message: “{session.pendingAction.message}”</div>
+            )}
+            <div className="chat-actions">
+              <button
+                type="button"
+                className="btn yes big"
+                onClick={() => onConfirm(true)}
+                disabled={busy}
+              >
+                Yes, do that
+              </button>
+              <button
+                type="button"
+                className="btn no big"
+                onClick={() => onConfirm(false)}
+                disabled={busy}
+              >
+                No, don’t
+              </button>
+            </div>
+            <p className="small muted" style={{ margin: 0 }}>
+              Nothing has been sent yet. Nothing happens until you say yes.
+            </p>
           </div>
         )}
 
@@ -162,36 +226,21 @@ export function PatientScreen({
 
       </div>
 
-      {awaitingConfirmation && session?.pendingAction && (
-        <div className="consent" aria-labelledby="consent-heading">
-          <div className="consent-label" id="consent-heading">
-            Your approval is needed
-          </div>
-          <div className="consent-action">CareFlow will {session.pendingAction.summary}.</div>
-          {session.pendingAction.message && (
-            <div className="small muted">Message: “{session.pendingAction.message}”</div>
-          )}
-          <div className="chat-actions">
-            <button
-              type="button"
-              className="btn yes big"
-              onClick={() => onConfirm(true)}
-              disabled={busy}
-            >
-              Yes, do that
-            </button>
-            <button
-              type="button"
-              className="btn no big"
-              onClick={() => onConfirm(false)}
-              disabled={busy}
-            >
-              No, don’t
-            </button>
-          </div>
-          <p className="small muted" style={{ margin: 0 }}>
-            Nothing has been sent yet. Nothing happens until you say yes.
+      {/*
+        * While the microphone is open the orb takes the screen. It is the clearest possible
+        * answer to "is it hearing me?" for someone who cannot read a small label, and it
+        * doubles as the recording indicator — it is on screen exactly as long as the
+        * microphone is, and the words heard so far sit underneath it.
+        */}
+      {voice.listening && (
+        <div className="listening" role="dialog" aria-label="Listening">
+          <SiriOrb size="176px" level={level} />
+          <p className="listening-text">
+            {voice.interim ? `“${voice.interim}…”` : 'Listening… just say what you need.'}
           </p>
+          <button type="button" className="btn big" onClick={voice.stopListening}>
+            Stop listening
+          </button>
         </div>
       )}
 
@@ -205,27 +254,27 @@ export function PatientScreen({
             className="composer-input"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            placeholder={canSend ? 'Tell CareFlow what to do…' : 'Waiting for something to happen…'}
-            disabled={!canSend}
+            placeholder="Tell CareFlow what to do…"
             autoComplete="off"
           />
 
           <button
             type="button"
-            className={`btn ${voice.listening ? 'listening' : 'primary'}`}
+            className={`mic${voice.listening ? ' is-live' : ''}`}
             onClick={voice.listening ? voice.stopListening : voice.startListening}
-            disabled={!canSend || voice.speaking || !voice.recognitionAvailable}
+            disabled={busy || voice.speaking || !voice.recognitionAvailable}
             aria-pressed={voice.listening}
+            aria-label={voice.listening ? 'Stop listening' : 'Speak instead of typing'}
             title={
               voice.recognitionAvailable
                 ? 'Speak instead of typing'
                 : 'This browser cannot listen — type, or use the buttons'
             }
           >
-            {voice.listening ? 'Listening… stop' : 'Speak'}
+            <MicIcon />
           </button>
 
-          <button type="submit" className="btn" disabled={!canSend || draft.trim() === ''}>
+          <button type="submit" className="btn" disabled={busy || draft.trim() === ''}>
             Send
           </button>
         </form>
@@ -307,4 +356,23 @@ function statusSub(
   // The matcher's own reason, verbatim. If the system's explanation is not good enough to
   // show the user, it is not good enough.
   return session.match.reason;
+}
+
+/**
+ * Mic glyph, inline. A whole icon package for one shape would be the largest dependency in
+ * the app; this is the same rounded capsule and stand as the reference.
+ */
+function MicIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+      <rect x="9" y="2.5" width="6" height="11" rx="3" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
 }
