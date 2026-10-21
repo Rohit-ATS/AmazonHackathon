@@ -90,6 +90,17 @@ export interface Health {
   };
 }
 
+export interface McpPendingApproval {
+  confirmationId: string;
+  summary: string;
+  message?: string;
+  expiresAt: string;
+}
+
+export function setApiToken(token: string): void {
+  sessionStorage.setItem('careflow.apiToken', token.trim());
+}
+
 export const api = {
   carePlan: () => request<CarePlan>('GET', '/api/care-plan'),
   safety: () => request<SafetyPanel>('GET', '/api/safety'),
@@ -116,6 +127,7 @@ export const api = {
     request<TurnResponse>('POST', `/api/sessions/${encodeURIComponent(sessionId)}/cancel`),
   approveMcpAction: (confirmationId: string, affirmative: boolean) =>
     request<Record<string, unknown>>('POST', '/api/mcp/confirm', { confirmationId, affirmative }),
+  pendingMcpActions: () => request<McpPendingApproval[]>('GET', '/api/mcp/pending'),
 
   fireRingEvent: (scenario: 'scheduled' | 'unexpected' | 'delivery') =>
     request<DemoEventResponse>('POST', '/api/demo/ring-event', { scenario }),

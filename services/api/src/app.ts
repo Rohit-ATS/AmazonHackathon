@@ -121,6 +121,9 @@ export async function handleRequest(ctx: AppContext, req: AppRequest): Promise<A
     // --- care plan + safety ----------------------------------------------
     if (method === 'GET' && path === '/api/care-plan') return json(200, ctx.carePlan);
     if (method === 'GET' && path === '/api/safety') return json(200, safetyPanel(ctx));
+    if (method === 'GET' && path === '/api/mcp/pending' && ctx.mcp) {
+      return json(200, ctx.mcp.pendingForHuman());
+    }
     if (method === 'POST' && path === '/api/mcp/confirm' && ctx.mcp) {
       const body = parseJsonBody<{ confirmationId?: string; affirmative?: boolean }>(req);
       if (!body.confirmationId || typeof body.affirmative !== 'boolean') {

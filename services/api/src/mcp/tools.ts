@@ -49,6 +49,13 @@ interface PendingConfirmation {
   sessionId: string;
 }
 
+export interface PendingApproval {
+  confirmationId: string;
+  summary: string;
+  message?: string;
+  expiresAt: string;
+}
+
 type Handler = (
   args: Record<string, unknown>,
   ctx: ToolContext,
@@ -132,6 +139,16 @@ export class ToolRegistry {
     return toolResult(result.detail, { status: 'done', action: pending.action.type, via: result.via, at: result.at });
   }
 
+  pendingForHuman(): PendingApproval[] {
+    this.sweepPending();
+    return [...this.pending.values()].map((pending) => ({
+      confirmationId: pending.id,
+      summary: pending.action.summary,
+      ...(pending.action.message ? { message: pending.action.message } : {}),
+      expiresAt: new Date(pending.expiresAt).toISOString(),
+    }));
+  }
+
   private register(definition: ToolDefinition, handler: Handler): void {
     this.tools.set(definition.name, { definition, handler });
   }
@@ -177,8 +194,8 @@ export class ToolRegistry {
     const ask = `Just to confirm — should I ${action.summary}?`;
     return toolResult(
       `Not done yet. Ask them, out loud, exactly this: "${ask}" ` +
-        `If they say yes, call confirm_action with confirmationId "${id}" and affirmative true. ` +
-        `If they say no, call it with affirmative false. Do not assume the answer.`,
+        `The separate CareFlow patient interface now shows this request. ` +
+        `If they say no, call confirm_action with affirmative false. Never submit a yes yourself.`,
       {
         status: 'confirmation_required',
         confirmationId: id,

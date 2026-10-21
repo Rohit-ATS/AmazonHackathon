@@ -23,10 +23,12 @@ import {
 import { CfnStage, HttpApi, CorsHttpMethod, HttpMethod } from 'aws-cdk-lib/aws-apigatewayv2';
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import { AttributeType, BillingMode, Table, TableEncryption } from 'aws-cdk-lib/aws-dynamodb';
+import { CfnBudget } from 'aws-cdk-lib/aws-budgets';
+import { Alarm, ComparisonOperator, TreatMissingData } from 'aws-cdk-lib/aws-cloudwatch';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Architecture, Runtime } from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
-import { RetentionDays } from 'aws-cdk-lib/aws-logs';
+import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 import type { Construct } from 'constructs';
 import { fileURLToPath } from 'node:url';
@@ -72,6 +74,10 @@ export class CareFlowStack extends Stack {
     );
     const apiAuthSecret = new Secret(this, 'ApiAuthToken', { generateSecretString: { passwordLength: 48 } });
     const mcpAuthSecret = new Secret(this, 'McpAuthToken', { generateSecretString: { passwordLength: 48 } });
+    const apiLogGroup = new LogGroup(this, 'ApiLogs', {
+      retention: RetentionDays.TWO_WEEKS,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
 
     // ---------------------------------------------------------------------
     // Compute
@@ -89,6 +95,7 @@ export class CareFlowStack extends Stack {
       // Enough that a cold start is not the thing that blows the Ring budget.
       memorySize: 1024,
       reservedConcurrentExecutions: 10,
+      logGroup: apiLogGroup,
       environment: {
         CAREFLOW_TABLE: table.tableName,
         CAREFLOW_DEMO_MODE: 'true',
@@ -115,7 +122,37 @@ export class CareFlowStack extends Stack {
           ],
         },
       },
-      logRetention: RetentionDays.TWO_WEEKS,
+    });
+
+    new Alarm(this, 'ApiErrorsAlarm', {
+      metric: api.metricErrors({ period: Duration.minutes(5) }),
+      threshold: 5,
+      evaluationPeriods: 1,
+      comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      treatMissingData: TreatMissingData.NOT_BREACHING,
+    });
+    new Alarm(this, 'ApiThrottlesAlarm', {
+      metric: api.metricThrottles({ period: Duration.minutes(5) }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      treatMissingData: TreatMissingData.NOT_BREACHING,
+    });
+    new Alarm(this, 'ApiDurationAlarm', {
+      metric: api.metricDuration({ period: Duration.minutes(5), statistic: 'p95' }),
+      threshold: 2500,
+      evaluationPeriods: 2,
+      comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
+      treatMissingData: TreatMissingData.NOT_BREACHING,
+    });
+
+    new CfnBudget(this, 'MonthlyBudget', {
+      budget: {
+        budgetName: 'CareFlow monthly guardrail',
+        budgetType: 'COST',
+        timeUnit: 'MONTHLY',
+        budgetLimit: { amount: 25, unit: 'USD' },
+      },
     });
 
     table.grantReadWriteData(api);

@@ -412,6 +412,10 @@ export class McpServer {
     return this.opts.tools.confirmFromHuman(confirmationId, affirmative);
   }
 
+  pendingForHuman() {
+    return this.opts.tools.pendingForHuman();
+  }
+
   private sweep(): void {
     const cutoff = Date.now() - SESSION_IDLE_MS;
     for (const [id, session] of this.sessions) {

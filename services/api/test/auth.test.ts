@@ -23,6 +23,7 @@ const context = {
   carePlan: { patient: { displayName: 'Test' }, visits: [] },
   log: () => {},
   mcp: {
+    pendingForHuman: () => [{ confirmationId: 'confirmation-1', summary: 'notify the care team', expiresAt: new Date(Date.now() + 60_000).toISOString() }],
     confirmFromHuman: async (confirmationId: string, affirmative: boolean) => ({
       content: [{ type: 'text', text: 'approved' }],
       structuredContent: { confirmationId, affirmative, status: 'done' },
@@ -53,5 +54,12 @@ describe('API authentication boundary', () => {
     const approved = await handleRequest(context, request('/api/mcp/confirm', 'Bearer api-test-token', body));
     expect(approved.status).toBe(200);
     expect(approved.body).toContain('confirmation-1');
+  });
+
+  it('shows pending MCP approvals only to the API-authenticated patient channel', async () => {
+    expect((await handleRequest(context, request('/api/mcp/pending'))).status).toBe(401);
+    const result = await handleRequest(context, request('/api/mcp/pending', 'Bearer api-test-token'));
+    expect(result.status).toBe(200);
+    expect(result.body).toContain('confirmation-1');
   });
 });

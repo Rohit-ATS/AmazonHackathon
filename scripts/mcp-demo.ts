@@ -14,6 +14,8 @@ import { COMPANION_INSTRUCTIONS } from '../services/api/src/mcp/index.js';
 const base = process.env.CAREFLOW_API ?? 'http://localhost:8787';
 const endpoint = new URL('/mcp', base).toString();
 const PROTOCOL = '2025-11-25';
+const mcpToken = process.env.CAREFLOW_MCP_TOKEN;
+const apiToken = process.env.CAREFLOW_API_TOKEN;
 
 let sessionId: string | undefined;
 let nextId = 1;
@@ -44,6 +46,7 @@ async function rpc(
     // The spec requires the client to list both.
     accept: 'application/json, text/event-stream',
   };
+  if (mcpToken) headers.authorization = `Bearer ${mcpToken}`;
   if (sessionId && !opts.omitSession) headers['mcp-session-id'] = sessionId;
   if (method !== 'initialize') {
     headers['mcp-protocol-version'] = opts.protocolVersion ?? PROTOCOL;
@@ -56,6 +59,23 @@ async function rpc(
   });
   const text = await res.text();
   return { status: res.status, body: text ? JSON.parse(text) : undefined, headers: res.headers };
+}
+
+async function approve(confirmationId: string, affirmative: boolean) {
+  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  if (apiToken) headers.authorization = `Bearer ${apiToken}`;
+  const res = await fetch(new URL('/api/mcp/confirm', base), {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ confirmationId, affirmative }),
+  });
+  const body = await res.json() as Record<string, any>;
+  return {
+    status: res.status,
+    isError: Boolean(body.isError),
+    text: (body.content ?? []).map((c: any) => c.text).join('\n'),
+    structured: body.structuredContent as Record<string, any> | undefined,
+  };
 }
 
 async function callTool(name: string, args: Record<string, unknown> = {}) {
@@ -106,6 +126,7 @@ step('2. transport rules');
       'content-type': 'application/json',
       accept: 'application/json, text/event-stream',
       origin: 'https://evil.example',
+      ...(mcpToken ? { authorization: `Bearer ${mcpToken}` } : {}),
       'mcp-session-id': sessionId!,
     },
     body: JSON.stringify({ jsonrpc: '2.0', id: 999, method: 'ping' }),
@@ -119,6 +140,7 @@ step('2. transport rules');
       accept: 'application/json, text/event-stream',
       'mcp-session-id': sessionId!,
       'mcp-protocol-version': PROTOCOL,
+      ...(mcpToken ? { authorization: `Bearer ${mcpToken}` } : {}),
     },
     body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }),
   });
@@ -200,11 +222,11 @@ step('5. medication refill — nothing happens without a yes');
   });
   check(replayGuard.isError, 'a made-up confirmation id is refused');
 
-  const done = await callTool('confirm_action', { confirmationId, affirmative: true });
+  const done = await approve(confirmationId, true);
   check(done.structured?.status === 'done', 'the refill goes through after an explicit yes');
   say('CareFlow', done.text.split('\n')[0] ?? '');
 
-  const replay = await callTool('confirm_action', { confirmationId, affirmative: true });
+  const replay = await approve(confirmationId, true);
   check(replay.isError, 'the same confirmation cannot be replayed');
 }
 
@@ -252,10 +274,7 @@ step('7. the boundaries');
     escalate.structured?.status === 'confirmation_required',
     'even an escalation asks first',
   );
-  const done = await callTool('confirm_action', {
-    confirmationId: String(escalate.structured?.confirmationId),
-    affirmative: true,
-  });
+  const done = await approve(String(escalate.structured?.confirmationId), true);
   check(done.structured?.status === 'done', 'and goes through once she agrees');
   say('CareFlow', done.text.split('\n')[0] ?? '');
 }
@@ -264,7 +283,11 @@ step('8. ending the session');
 {
   const res = await fetch(endpoint, {
     method: 'DELETE',
-    headers: { 'mcp-session-id': sessionId!, 'mcp-protocol-version': PROTOCOL },
+    headers: {
+      'mcp-session-id': sessionId!,
+      'mcp-protocol-version': PROTOCOL,
+      ...(mcpToken ? { authorization: `Bearer ${mcpToken}` } : {}),
+    },
   });
   check(res.status === 204, `DELETE terminates the session (${res.status})`);
 

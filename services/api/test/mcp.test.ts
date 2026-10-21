@@ -299,6 +299,9 @@ describe('the consent gate', () => {
     expect(result.structured?.confirmationId).toBeTypeOf('string');
     // The model is handed the exact sentence rather than left to paraphrase consent.
     expect(String(result.structured?.askExactly)).toContain('Just to confirm');
+    expect(server.pendingForHuman()).toEqual([
+      expect.objectContaining({ confirmationId: result.structured?.confirmationId }),
+    ]);
   });
 
   it('executes only after an explicit yes', async () => {

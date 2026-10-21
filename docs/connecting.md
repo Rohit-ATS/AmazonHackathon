@@ -38,8 +38,8 @@ npx @modelcontextprotocol/inspector          # the standard MCP debugging client
 ```
 
 Connect it to `http://localhost:8787/mcp`, transport **Streamable HTTP**. You will see all
-17 tools, can call them by hand, and can watch the confirmation gate refuse to act until
-`confirm_action` arrives.
+17 tools and can watch the confirmation gate refuse to act until the separate patient UI
+approves the exact request.
 
 For a client that uses a real model, add CareFlow to its MCP config:
 
@@ -98,7 +98,16 @@ Not every voice supports the neural engine in every region. On any failure the A
 
 ### DynamoDB, Lambda, API Gateway, Secrets Manager
 
-All provisioned by `npm run deploy`. The one you must set by hand is the Ring signing key,
+All provisioned by `npm run deploy`. API and MCP bearer tokens are generated as separate
+Secrets Manager secrets and their names are printed as stack outputs. Retrieve the API token
+once and enter it in the CareFlow sign-in screen; configure the MCP host with the MCP token:
+
+```bash
+aws secretsmanager get-secret-value --secret-id <ApiAuthSecretName> --query SecretString --output text
+aws secretsmanager get-secret-value --secret-id <McpAuthSecretName> --query SecretString --output text
+```
+
+The one secret you must set by hand is the Ring signing key,
 which deliberately does not live in an environment variable:
 
 ```bash
@@ -113,6 +122,9 @@ nobody signed would be worse than being down.
 Pennies for a hackathon. Bedrock is per-token, Polly per-character, DynamoDB on-demand,
 Lambda free-tier. The thing to actually watch is leaving the stack up afterwards —
 `npm run destroy` when you are done.
+
+The stack also creates a USD 25 monthly budget plus Lambda error, throttle, and p95 latency
+alarms. Connect notification actions in AWS for the team channel used during the hackathon.
 
 ---
 

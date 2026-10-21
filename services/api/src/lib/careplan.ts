@@ -7,7 +7,7 @@
  */
 
 import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import type {
   Appointment,
@@ -73,8 +73,11 @@ function atTimeToday(hhmm: string, base: Date): string {
 
 /** Resolve the fixture path from this module, so cwd does not matter. */
 function fixturePath(): string {
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  return path.resolve(here, '../../../../fixtures/care-plan.json');
+  const candidates = [
+    path.resolve(process.cwd(), 'fixtures/care-plan.json'),
+    path.resolve(process.cwd(), '../../fixtures/care-plan.json'),
+  ];
+  return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0]!;
 }
 
 function shift(now: Date, minutes: number): string {

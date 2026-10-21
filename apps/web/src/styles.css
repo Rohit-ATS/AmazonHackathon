@@ -143,6 +143,38 @@ button {
   flex-direction: column;
 }
 
+.auth-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: var(--mist);
+}
+
+.auth-card {
+  width: min(30rem, 100%);
+  display: grid;
+  gap: 1rem;
+  padding: 2rem;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.auth-card input {
+  min-height: 52px;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--text-muted);
+  border-radius: var(--r-sm);
+  font: inherit;
+}
+
+.mcp-consent {
+  max-width: 56rem;
+  margin: 0 auto 1rem;
+}
+
 .app-header {
   position: sticky;
   top: 0;

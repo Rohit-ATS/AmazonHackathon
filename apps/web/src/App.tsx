@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CarePlan, CareSession, SafetyPanel as SafetyPanelData } from '@careflow/shared';
-import { api, ApiError, type Health } from './lib/api.js';
+import { api, ApiError, setApiToken, type Health, type McpPendingApproval } from './lib/api.js';
 import { useLive } from './lib/useLive.js';
 import { useVoice } from './lib/useVoice.js';
 import { PatientScreen } from './components/PatientScreen.js';
@@ -71,6 +71,9 @@ export function App() {
   const [sessions, setSessions] = useState<CareSession[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [authRequired, setAuthRequired] = useState(false);
+  const [tokenDraft, setTokenDraft] = useState('');
+  const [mcpPending, setMcpPending] = useState<McpPendingApproval[]>([]);
 
   const [largeTextChoice, chooseLargeText] = usePreference('careflow.largeText');
   const [mutedChoice, chooseMuted] = usePreference('careflow.muted');
@@ -106,11 +109,23 @@ export function App() {
         if (safetyResult.status === 'fulfilled') setSafety(safetyResult.value);
         if (healthResult.status === 'fulfilled') setHealth(healthResult.value);
         if (planResult.status === 'rejected') {
-          setError('Cannot reach the CareFlow API. Is `npm run dev:api` running?');
+          if (planResult.reason instanceof ApiError && planResult.reason.status === 401) {
+            setAuthRequired(true);
+          } else {
+            setError('Cannot reach the CareFlow API. Is `npm run dev:api` running?');
+          }
         }
       },
     );
   }, []);
+
+  useEffect(() => {
+    if (authRequired) return;
+    const load = () => void api.pendingMcpActions().then(setMcpPending).catch(() => {});
+    load();
+    const timer = setInterval(load, 2000);
+    return () => clearInterval(timer);
+  }, [authRequired]);
 
   const reloadSessions = useCallback(() => {
     void api.sessions(10).then(setSessions).catch(() => {});
@@ -213,6 +228,43 @@ export function App() {
     }
   }, [applySession]);
 
+  const onMcpApproval = useCallback(async (item: McpPendingApproval, affirmative: boolean) => {
+    setBusy(true);
+    setError(undefined);
+    try {
+      await api.approveMcpAction(item.confirmationId, affirmative);
+      setMcpPending((current) => current.filter((pending) => pending.confirmationId !== item.confirmationId));
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }, [refresh]);
+
+  if (authRequired) {
+    return (
+      <main className="auth-shell">
+        <form
+          className="auth-card"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!tokenDraft.trim()) return;
+            setApiToken(tokenDraft);
+            window.location.reload();
+          }}
+        >
+          <span className="brand-dot" aria-hidden="true">CF</span>
+          <h1>Open CareFlow</h1>
+          <p>Enter the household access token provided by your care coordinator.</p>
+          <label htmlFor="access-token">Access token</label>
+          <input id="access-token" type="password" autoComplete="current-password" value={tokenDraft} onChange={(event) => setTokenDraft(event.target.value)} />
+          <button className="btn lime big" type="submit" disabled={!tokenDraft.trim()}>Continue</button>
+        </form>
+      </main>
+    );
+  }
+
   return (
     <div className="app">
       <a className="skip-link" href="#main">
@@ -279,6 +331,18 @@ export function App() {
       </nav>
 
       <main id="main" role="tabpanel" aria-labelledby={`tab-${tab}`} tabIndex={-1}>
+        {mcpPending.map((item) => (
+          <section className="consent mcp-consent" aria-label="Companion approval" key={item.confirmationId}>
+            <div className="consent-label">Your companion is asking for approval</div>
+            <div className="consent-action">CareFlow will {item.summary}.</div>
+            {item.message && <div className="small muted">Message: “{item.message}”</div>}
+            <div className="chat-actions">
+              <button className="btn yes big" disabled={busy} onClick={() => void onMcpApproval(item, true)}>Yes, do that</button>
+              <button className="btn no big" disabled={busy} onClick={() => void onMcpApproval(item, false)}>No, don’t</button>
+            </div>
+            <p className="small muted">This request expires at {new Date(item.expiresAt).toLocaleTimeString()}.</p>
+          </section>
+        ))}
         {tab === 'patient' && (
           <PatientScreen
             session={session}

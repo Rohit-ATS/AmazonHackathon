@@ -24,7 +24,9 @@ exercises. Writing them out is the proof.
 ```
 
 Locally that is `http://localhost:8787/mcp`. A browser-based host must send an `Origin`
-that CareFlow recognises; add it with `CAREFLOW_MCP_ORIGINS`.
+that CareFlow recognises; add it with `CAREFLOW_MCP_ORIGINS`. A deployed host must also send
+`Authorization: Bearer <CAREFLOW_MCP_TOKEN>`. The patient web app uses a separate API token,
+so the MCP host cannot approve its own sensitive actions.
 
 ## Transport compliance
 
@@ -87,20 +89,21 @@ model                     CareFlow                        the person
   │     askExactly: "..."    │
   │  ────────────────────────┼───── asks, out loud ───────────►│
   │ ◄────────────────────────┼────── "yes" ───────────────────┤
-  │  confirm_action ────────►│
+  │                          │◄── patient UI approval ─────────┤
   │                          │ assertExecutable() then acts
   │ ◄────── status: done ────│
 ```
 
 A sensitive tool returns `status: "confirmation_required"`, a `confirmationId`, and
 `askExactly` — the precise sentence to say, so consent is not paraphrased into something
-vaguer. Nothing happens until `confirm_action` arrives with that id and `affirmative: true`.
+vaguer. Nothing happens until the separately authenticated patient interface approves that id.
 
 The action is frozen inside [`@careflow/consent-engine`](../packages/consent-engine) at the
 moment it is staged, and `assertExecutable()` runs immediately before the side effect — so
 the message that gets sent is necessarily the message that was approved, not one edited
 afterwards.
 
+The MCP host cannot submit an affirmative confirmation; `confirm_action` only records a refusal.
 **A host that ignores all of this simply cannot make anything happen.** That is the property
 we wanted.
 
