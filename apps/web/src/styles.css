@@ -234,42 +234,104 @@ button {
   gap: 0.5rem;
 }
 
-/* ------------------------------------------------------------------- nav tabs */
+/* ------------------------------------------------------------------- nav dock */
 
-.tabs {
+/*
+ * The section bar as a magnifying dock. Items grow toward the pointer, the one under it
+ * leading; `--mag` is written straight onto each element by the component, so the whole
+ * effect is one compositor-friendly transform per item and no React render per mousemove.
+ *
+ * The base item is 48px, the floor this product holds every control to, and it only ever
+ * grows from there — the magnification is decoration on top of a target that is already
+ * big enough to hit without it.
+ */
+
+.dock-wrap {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  padding: 0.85rem clamp(1rem, 3vw, 2.5rem) 0;
-  max-width: 78rem;
-  margin: 0 auto;
-  width: 100%;
+  justify-content: center;
+  /*
+   * The top padding is headroom for the magnification. Items grow from their bottom edge,
+   * so at full scale one reaches about 24px above the bar; without the room it would ride
+   * up under the sticky header.
+   */
+  padding: 1.7rem clamp(1rem, 3vw, 2.5rem) 0;
 }
 
-.tab {
+.dock {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.4rem;
+  border-radius: var(--r-lg);
+  background: var(--mist);
+  border: 1px solid var(--line);
+  max-width: 100%;
+  /*
+   * Emphatically not `overflow-x: auto`. Setting one axis to anything but `visible`
+   * forces the other to `auto` as well, so a horizontal scroller also clips vertically —
+   * which cropped the magnified item's icon and squared off its rounded corners against
+   * the bar. Four items wrap on a narrow screen instead of scrolling.
+   */
+  overflow: visible;
+}
+
+.dock-item {
+  --mag: 0;
   position: relative;
+  flex: none;
+  display: grid;
+  justify-items: center;
+  gap: 0.15rem;
+  min-width: 48px;
   min-height: 48px;
-  padding: 0 1.1rem;
-  border: 1px solid transparent;
-  border-radius: var(--pill);
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-radius: var(--r);
   background: transparent;
   color: var(--text-muted);
   font-weight: 600;
-  font-size: 0.95rem;
-  transition: color 160ms var(--ease), background-color 160ms var(--ease),
-    border-color 160ms var(--ease);
+  font-size: 0.82rem;
+  transform: scale(calc(1 + var(--mag))) translateY(calc(var(--mag) * -4px));
+  transform-origin: 50% 100%;
+  transition: transform 220ms var(--ease), background-color 160ms var(--ease),
+    color 160ms var(--ease);
 }
 
-.tab:hover {
-  background: var(--mist-2);
-  border-color: var(--line);
+.dock-item:hover {
   color: var(--text);
 }
 
-.tab[aria-selected='true'] {
+.dock-item.is-selected {
   background: var(--ink);
-  border-color: var(--ink);
   color: var(--paper);
+}
+
+.dock-icon {
+  display: grid;
+  place-items: center;
+  line-height: 0;
+}
+
+/*
+ * The label stays on screen rather than appearing only on hover. The reference reveals it
+ * as a tooltip, which is fine for an app dock full of familiar icons and wrong for
+ * navigation in a care product: a bar whose meaning is available only to a mouse excludes
+ * touch and keyboard users, and four unexplained glyphs are a guessing game for exactly
+ * the people this is built for.
+ */
+.dock-label {
+  font-size: 0.78rem;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dock-item {
+    transform: none;
+    transition: background-color 160ms linear, color 160ms linear;
+  }
 }
 
 main {
@@ -463,7 +525,7 @@ main {
   transform-origin: 50% 100%;
   transition: max-height 320ms var(--ease), opacity 220ms var(--ease),
     padding 320ms var(--ease), transform 320ms var(--ease), border-color 220ms var(--ease),
-    visibility 0s linear 320ms;
+    margin-bottom 320ms var(--ease), visibility 0s linear 320ms;
 }
 
 /*
@@ -480,6 +542,9 @@ main {
   transform: scaleY(0.92);
   visibility: hidden;
   pointer-events: none;
+  /* A zero-height flex child still earns its gap; cancel it so the orb bar lands exactly
+     where the chat bar was rather than 0.75rem lower. */
+  margin-bottom: -0.75rem;
 }
 
 .composer-row {
@@ -784,26 +849,36 @@ main {
  * the microphone is open there is exactly one thing to attend to, and for someone who
  * cannot read a small "listening" label this is the whole message.
  */
+/*
+ * Takes the chat bar's place rather than covering the conversation: the microphone
+ * replaces the way in, so the thread stays readable and nothing above this point moves.
+ */
 .listening {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: 1.3rem;
-  padding: 1.5rem;
+  flex: none;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.85rem 1.1rem;
   border-radius: var(--r-lg);
-  background: rgb(12 13 12 / 94%);
-  backdrop-filter: blur(6px);
-  animation: listening-in 260ms var(--ease) both;
+  background: var(--ink);
+  color: var(--paper);
+  animation: listening-in 300ms var(--ease) both;
+  transform-origin: 50% 100%;
 }
 
 @keyframes listening-in {
   from {
     opacity: 0;
-    transform: scale(0.98);
+    transform: translateY(8px) scaleY(0.9);
   }
+}
+
+.listening .btn {
+  background: var(--paper);
+  border-color: var(--paper);
+  color: var(--ink);
+  margin-left: auto;
 }
 
 /*
@@ -811,13 +886,15 @@ main {
  * wrapper. Two animations on one transform would fight, and the voice would lose.
  */
 .listening-orb {
+  flex: none;
+  line-height: 0;
   animation: orb-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 @keyframes orb-pop {
   from {
     opacity: 0;
-    transform: scale(0.4);
+    transform: scale(0.3);
   }
   to {
     opacity: 1;
@@ -827,17 +904,11 @@ main {
 
 .listening-text {
   margin: 0;
-  max-width: 28ch;
-  text-align: center;
+  flex: 1;
+  min-width: 14ch;
   color: var(--paper);
-  font-size: clamp(1.05rem, 0.95rem + 0.6vw, 1.4rem);
+  font-size: clamp(1rem, 0.95rem + 0.4vw, 1.2rem);
   font-weight: 600;
-}
-
-.listening .btn {
-  background: var(--paper);
-  border-color: var(--paper);
-  color: var(--ink);
 }
 
 /* ======================================================================== orb */
@@ -1286,6 +1357,115 @@ button.row:hover {
 
 .card.plain .segmented {
   background: var(--mist);
+}
+
+/* =========================================================== caregiver header */
+
+/*
+ * The patient banner, compressed. It was a full-height hero with a 3rem name and two
+ * oversized figures, which pushed the schedule — the thing a caregiver actually came for —
+ * below the fold. Same information, about a third of the height: identity on the left,
+ * today's counts as inline figures, and the care-team filter underneath.
+ */
+.care-head {
+  display: grid;
+  gap: 0.9rem;
+  padding: calc(var(--gap) * 0.95) calc(var(--gap) * 1.1);
+  border-radius: var(--r-lg);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.care-id {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.85rem 1.1rem;
+}
+
+.care-avatar {
+  flex: none;
+  width: 2.9rem;
+  height: 2.9rem;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r);
+  background: var(--lime);
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+}
+
+.care-id-text {
+  flex: 1;
+  min-width: 14ch;
+}
+
+.care-id-text .eyebrow {
+  color: var(--lime);
+  margin-bottom: 0;
+}
+
+.care-head h2 {
+  font-size: clamp(1.25rem, 1.05rem + 0.8vw, 1.6rem);
+  color: var(--paper);
+}
+
+.care-context {
+  margin: 0.2rem 0 0;
+  max-width: 62ch;
+  color: rgb(255 255 255 / 66%);
+  font-size: 0.87rem;
+}
+
+/* The counts, inline. Big numerals looked like a dashboard metric; these read as a
+   sentence, which is what they are. */
+.care-figures {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.1rem;
+  margin-left: auto;
+}
+
+.care-figure {
+  font-size: 0.87rem;
+  color: rgb(255 255 255 / 70%);
+  white-space: nowrap;
+}
+
+.care-figure strong {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--lime);
+  margin-right: 0.15rem;
+}
+
+.care-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgb(255 255 255 / 12%);
+}
+
+/* Reuses the settings segment, re-grounded for a dark panel. */
+.care-switch .seg {
+  min-height: 40px;
+  background: rgb(255 255 255 / 7%);
+  color: rgb(255 255 255 / 78%);
+}
+
+.care-switch .seg:hover {
+  background: rgb(255 255 255 / 13%);
+  color: var(--paper);
+}
+
+.care-switch .seg.is-on {
+  background: var(--lime);
+  color: var(--ink);
+  box-shadow: none;
 }
 
 /* ================================================================= dark panel */
