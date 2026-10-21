@@ -9,8 +9,6 @@
 import { useEffect, useState } from 'react';
 import type { AuditRecord, CareSession, TimelineEntry } from '@careflow/shared';
 import { api } from '../lib/api.js';
-import { stagger } from '../lib/useReveal.js';
-import { Blob, Wave } from './Decor.js';
 
 interface Props {
   timeline: TimelineEntry[];
@@ -26,8 +24,16 @@ const KIND_LABEL: Record<string, string> = {
   refusal: 'Refused',
 };
 
+/** How many of the most recent entries a windowed timeline shows. */
+const RECENT = 10;
+
 export function Timeline({ timeline, session }: Props) {
   const [audit, setAudit] = useState<AuditRecord[]>([]);
+  // The timeline grows all day. Open but windowed is the useful default: the newest
+  // entries are what anyone is actually looking for, and the rest stay one click away
+  // instead of pushing the audit trail hundreds of rows down the page.
+  const [open, setOpen] = useState(true);
+  const [showAll, setShowAll] = useState(false);
   const sessionId = session?.sessionId;
 
   useEffect(() => {
@@ -51,26 +57,69 @@ export function Timeline({ timeline, session }: Props) {
   }, [sessionId, session?.turns.length, session?.state]);
 
   const ordered = [...timeline].sort((a, b) => a.at.localeCompare(b.at));
+  const hidden = Math.max(0, ordered.length - RECENT);
+  const visible = showAll ? ordered : ordered.slice(-RECENT);
 
   return (
     <>
       <section className="card" aria-labelledby="timeline-heading" data-reveal>
-        <Blob corner="tr" size="26%" />
         <header>
           <div>
             <div className="eyebrow">Everything, in order</div>
             <h2 id="timeline-heading">Event timeline</h2>
           </div>
-          <span className="badge">{ordered.length} entries today</span>
+          <div className="header-actions">
+            <span className="badge">{ordered.length} entries today</span>
+            {open && hidden > 0 && (
+              <button className="btn sm ghost" onClick={() => setShowAll(!showAll)}>
+                {showAll ? `Show last ${RECENT}` : `Show all ${ordered.length}`}
+              </button>
+            )}
+            <button
+              className="btn sm ghost"
+              onClick={() => setOpen(!open)}
+              aria-expanded={open}
+              aria-controls="timeline-list"
+            >
+              {open ? 'Hide' : 'Show'}
+            </button>
+          </div>
         </header>
 
         {ordered.length === 0 && (
           <p className="muted">Nothing has happened yet today.</p>
         )}
 
-        <ul className="timeline">
-          {ordered.map((entry, i) => (
-            <li key={entry.entryId} data-reveal="left" style={stagger(i, 50)}>
+        {/* Closed, the section still reports what it holds — a collapsed panel that says
+            nothing makes the reader open it just to find out whether it mattered. */}
+        {!open && ordered.length > 0 && (
+          <p className="timeline-summary">
+            <span>
+              {ordered.length} entries, most recently{' '}
+              <strong>{formatTime(ordered[ordered.length - 1]!.at)}</strong>.
+            </span>
+            <button className="btn sm ghost" onClick={() => setOpen(true)}>
+              Show the timeline
+            </button>
+          </p>
+        )}
+
+        {open && hidden > 0 && !showAll && (
+          <p className="timeline-summary" style={{ marginBottom: '1rem' }}>
+            <span>Showing the {RECENT} most recent of {ordered.length}.</span>
+            <button className="btn sm ghost" onClick={() => setShowAll(true)}>
+              Show {hidden} earlier
+            </button>
+          </p>
+        )}
+
+        <ul
+          className={`timeline${showAll ? ' is-compact' : ''}`}
+          id="timeline-list"
+          hidden={!open}
+        >
+          {visible.map((entry) => (
+            <li key={entry.entryId} data-reveal>
               <time dateTime={entry.at}>{formatTime(entry.at)}</time>
               <span className="rail" aria-hidden="true">
                 {/* `k-` namespaced: entry.kind is server data, and dropping it bare into the
@@ -93,7 +142,6 @@ export function Timeline({ timeline, session }: Props) {
       </section>
 
       <section className="panel-dark" aria-labelledby="audit-heading" data-reveal="pop">
-        <Wave />
         <header
           style={{
             display: 'flex',
@@ -117,8 +165,8 @@ export function Timeline({ timeline, session }: Props) {
         {session && audit.length === 0 && <p className="muted">No audit records yet.</p>}
 
         <div className="rows">
-          {audit.map((record, i) => (
-            <div className="row" key={record.auditId} data-reveal style={stagger(i, 50)}>
+          {audit.map((record) => (
+            <div className="row" key={record.auditId} data-reveal>
               <time className="small muted" style={{ fontVariantNumeric: 'tabular-nums' }}>
                 {formatTime(record.at)}
               </time>
