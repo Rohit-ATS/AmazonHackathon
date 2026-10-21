@@ -46,9 +46,19 @@ export function createScriptedOrchestrator(deps: OrchestratorDeps): Orchestrator
         deps.log('safety boundary triggered', { kind: boundary.kind, sessionId: session.sessionId });
 
         if (boundary.kind === 'emergency_claim') {
-          // Turn it into the confirmation-only escalation rather than leaving the patient
-          // with nothing: they asked for help and deserve an actionable offer.
-          const action = escalationAction(plan, 'The patient asked for urgent help.');
+          // `escalate_care_team` is reserved for the patient-started prototype. In an
+          // ordinary visitor session, offer the normal caregiver notification instead.
+          const care = caregiver(plan);
+          const action: SensitiveAction =
+            session.mode === 'emergency_assist_prototype'
+              ? escalationAction(plan, 'The patient asked for urgent help.')
+              : {
+                  type: 'notify_caregiver',
+                  ...(care ? { contactId: care.contactId } : {}),
+                  message: 'The patient asked the care team to contact them. No medical assessment was made.',
+                  note: 'Patient requested help after being directed to call emergency services directly if needed.',
+                  summary: `tell ${care?.displayName ?? 'your care team'} you need help`,
+                };
           return {
             say: boundary.say,
             state: 'awaiting_confirmation',
@@ -101,11 +111,16 @@ export function createScriptedOrchestrator(deps: OrchestratorDeps): Orchestrator
 
       const action = extractIntent(transcript, session, plan);
       if (!action) {
+        const useButtons = previousAgentTurnWasUnrecognised(session);
         return {
-          say: "Sorry, I didn't catch that. You can tell me to let them know you're ready, contact someone you trust, or do nothing. You can also use the buttons on screen.",
+          say: useButtons
+            ? "I'm still having trouble understanding. Please use the buttons on screen."
+            : "Sorry, I didn't catch that. You can tell me to let them know you're ready, contact someone you trust, or do nothing.",
           state: 'awaiting_choice',
           engine: 'scripted',
-          rationale: 'Unrecognised request; re-offered the available choices.',
+          rationale: useButtons
+            ? 'Two unrecognised requests in a row; switched to the on-screen buttons.'
+            : 'Unrecognised request; re-offered the available choices.',
           options: choicesFor(session, plan),
         };
       }
@@ -229,7 +244,9 @@ function extractIntent(
   plan: CarePlan,
 ): SensitiveAction | undefined {
   const t = transcript.toLowerCase();
-  const caregiverContact = session.match.contact ?? caregiver(plan);
+  const caregiverContact = session.match.contact?.notifiableOutsideVisits
+    ? session.match.contact
+    : caregiver(plan);
   const trusted = trustedContact(plan);
 
   if (/\b(nothing|ignore|leave it|don't answer)\b/.test(t)) {
@@ -302,6 +319,16 @@ function extractNote(transcript: string): string | undefined {
   return `Patient request: ${tail}`;
 }
 
+/**
+ * The backend appends the current patient turn before calling `respond()`, so the most
+ * recent agent turn is the response to the preceding patient turn. Its fixed rationale is
+ * not stored in `CareSession`; the fixed spoken prefix is therefore the durable marker.
+ */
+function previousAgentTurnWasUnrecognised(session: CareSession): boolean {
+  const previousAgent = [...session.turns].reverse().find((turn) => turn.speaker === 'agent');
+  return previousAgent?.text.startsWith("Sorry, I didn't catch that.") ?? false;
+}
+
 // ---------------------------------------------------------------------------
 // Confirmation
 // ---------------------------------------------------------------------------
@@ -345,16 +372,24 @@ function confirmQuestion(action: SensitiveAction): string {
 // ---------------------------------------------------------------------------
 
 function caregiver(plan: CarePlan) {
-  return plan.contacts.find((c) => c.role === 'caregiver');
+  return plan.contacts.find((c) => c.role === 'caregiver' && c.notifiableOutsideVisits);
 }
 
 function trustedContact(plan: CarePlan) {
-  return plan.contacts.find((c) => c.role === 'trusted_contact');
+  // Patient-controlled notification permissions are an input to the catalogue, not a
+  // check postponed until execution. Never offer a choice that the backend must refuse.
+  return plan.contacts.find(
+    (c) => c.role === 'trusted_contact' && c.notifiableOutsideVisits,
+  );
 }
 
 function escalationAction(plan: CarePlan, why: string): SensitiveAction {
   const recipients = plan.contacts
-    .filter((c) => c.role === 'care_coordinator' || c.role === 'trusted_contact')
+    .filter(
+      (c) =>
+        (c.role === 'care_coordinator' || c.role === 'trusted_contact') &&
+        c.notifiableOutsideVisits,
+    )
     .map((c) => c.displayName)
     .join(' and ');
   return {
@@ -367,7 +402,9 @@ function escalationAction(plan: CarePlan, why: string): SensitiveAction {
 
 function choicesFor(session: CareSession, plan: CarePlan) {
   const trusted = trustedContact(plan);
-  const care = session.match.contact ?? caregiver(plan);
+  const care = session.match.contact?.notifiableOutsideVisits
+    ? session.match.contact
+    : caregiver(plan);
 
   if (session.match.status === 'scheduled' && care) {
     return [

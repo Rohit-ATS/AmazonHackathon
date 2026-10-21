@@ -8,6 +8,9 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "test": "vitest run"
+  },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.712.0",
     "@careflow/consent-engine": "*",

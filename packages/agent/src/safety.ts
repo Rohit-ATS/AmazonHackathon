@@ -65,7 +65,7 @@ export function checkBoundary(utterance: string): Boundary | null {
     return {
       kind: 'emergency_claim',
       // Never claims to have called anyone, and never discourages them from calling.
-      say: 'I can’t contact emergency services, so if this is an emergency please call them directly. I can let your care team and Maya know that you need help. Would you like me to do that?',
+      say: 'I can’t contact emergency services, so if this is an emergency please call them directly. I can let your care team know that you need help. Would you like me to do that?',
       rationale: 'Emergency dispatch is a blocked capability; directed to emergency services.',
     };
   }

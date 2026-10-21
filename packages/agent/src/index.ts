@@ -27,7 +27,10 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
   }
 
   deps.log('orchestrator: bedrock with scripted fallback', { model: deps.bedrockModelId });
-  return withFallback(() => loadBedrock(deps), scripted, deps);
+  // Cache per orchestrator, not process-wide. A test, warm Lambda, or multi-tenant host may
+  // construct more than one instance with different plans, loggers, regions, or models.
+  const bedrock = loadBedrock(deps);
+  return withFallback(() => bedrock, scripted, deps);
 }
 
 /**
@@ -38,10 +41,8 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
  * scripted rather than crashing the API. The promise is cached, including its rejection, so
  * a missing module costs one failed import rather than one per turn.
  */
-let bedrockPromise: Promise<Orchestrator | undefined> | undefined;
-
 function loadBedrock(deps: OrchestratorDeps): Promise<Orchestrator | undefined> {
-  bedrockPromise ??= (async () => {
+  return (async () => {
     try {
       const mod = (await import('./bedrock.js')) as {
         createBedrockOrchestrator?: (d: OrchestratorDeps) => Orchestrator;
@@ -56,7 +57,6 @@ function loadBedrock(deps: OrchestratorDeps): Promise<Orchestrator | undefined> 
       return undefined;
     }
   })();
-  return bedrockPromise;
 }
 
 /**
@@ -76,11 +76,15 @@ function withFallback(
     args: Parameters<Orchestrator[K]>,
   ): Promise<AgentTurn> => {
     try {
-      const primary = await getPrimary();
-      if (!primary) {
-        return (fallback[method] as (...a: unknown[]) => Promise<AgentTurn>)(...args);
-      }
-      const attempt = (primary[method] as (...a: unknown[]) => Promise<AgentTurn>)(...args);
+      // Include lazy module loading and client construction in the deadline. A cold import
+      // that stalls is indistinguishable to the patient from a model call that stalls.
+      const attempt = (async () => {
+        const primary = await getPrimary();
+        if (!primary) {
+          return (fallback[method] as (...a: unknown[]) => Promise<AgentTurn>)(...args);
+        }
+        return (primary[method] as (...a: unknown[]) => Promise<AgentTurn>)(...args);
+      })();
       let timer: NodeJS.Timeout | undefined;
       const timeout = new Promise<never>((_, reject) => {
         timer = setTimeout(() => reject(new Error('model_deadline_exceeded')), MODEL_DEADLINE_MS);

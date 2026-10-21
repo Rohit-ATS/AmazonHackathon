@@ -37,7 +37,10 @@ import { checkBoundary } from './safety.js';
 /** Hard cap on what the model may say in one turn. Patients get one question at a time. */
 const MAX_SAY_CHARS = 420;
 
-export function createBedrockOrchestrator(deps: OrchestratorDeps): Orchestrator {
+export function createBedrockOrchestrator(
+  deps: OrchestratorDeps,
+  runtimeOverride?: BedrockRuntime,
+): Orchestrator {
   // The scripted orchestrator supplies the action catalogue and every state transition.
   // Bedrock only supplies words and a choice between actions that already exist, which is
   // what keeps the state machine deterministic while the voice sounds natural.
@@ -53,7 +56,7 @@ export function createBedrockOrchestrator(deps: OrchestratorDeps): Orchestrator 
         return base;
       }
 
-      const say = await phraseOpening(session, plan, deps);
+      const say = await phraseOpening(session, plan, deps, runtimeOverride);
       if (!say) return base;
 
       // Keep the scripted turn's state, options, and rationale; swap only the words.
@@ -73,7 +76,7 @@ export function createBedrockOrchestrator(deps: OrchestratorDeps): Orchestrator 
       }
 
       const options = offeredActions(session, plan);
-      const extracted = await extractIntent(transcript, session, options, deps);
+      const extracted = await extractIntent(transcript, options, deps, runtimeOverride);
       if (!extracted) return scripted.respond(session, transcript);
 
       const action = options.find((o) => o.action.type === extracted.actionId);
@@ -140,7 +143,7 @@ Hard rules:
 - Never claim an action has happened. You are only speaking; something else acts.
 - Say "appears to be" about a matched visit. A schedule match is not an identification.`;
 
-interface BedrockRuntime {
+export interface BedrockRuntime {
   converse(input: {
     modelId: string;
     system?: { text: string }[];
@@ -193,13 +196,16 @@ async function phraseOpening(
   session: CareSession,
   plan: CarePlan,
   deps: OrchestratorDeps,
+  runtimeOverride?: BedrockRuntime,
 ): Promise<string | undefined> {
-  const runtime = await getRuntime(deps);
+  const runtime = runtimeOverride ?? (await getRuntime(deps));
   if (!runtime || !deps.bedrockModelId) return undefined;
 
   const contact = session.match.contact;
   const next = session.match.nearestVisit;
-  const trusted = plan.contacts.find((c) => c.role === 'trusted_contact');
+  const trusted = plan.contacts.find(
+    (c) => c.role === 'trusted_contact' && c.notifiableOutsideVisits,
+  );
 
   // The facts are given; the model's only job is wording. It is not asked to decide
   // whether the visit matched, because it is not allowed to have an opinion about that.
@@ -276,11 +282,11 @@ interface ExtractedIntent {
  */
 async function extractIntent(
   transcript: string,
-  session: CareSession,
   options: { action: SensitiveAction; description: string }[],
   deps: OrchestratorDeps,
+  runtimeOverride?: BedrockRuntime,
 ): Promise<ExtractedIntent | undefined> {
-  const runtime = await getRuntime(deps);
+  const runtime = runtimeOverride ?? (await getRuntime(deps));
   if (!runtime || !deps.bedrockModelId || options.length === 0) return undefined;
 
   // Widened to string on purpose: this list is what we check the model's answer against,
@@ -449,7 +455,9 @@ function offeredActions(
   session: CareSession,
   plan: CarePlan,
 ): { action: SensitiveAction; description: string }[] {
-  const caregiver = session.match.contact ?? plan.contacts.find((c) => c.role === 'caregiver');
+  const caregiver = session.match.contact?.notifiableOutsideVisits
+    ? session.match.contact
+    : plan.contacts.find((c) => c.role === 'caregiver' && c.notifiableOutsideVisits);
   const trusted = plan.contacts.find((c) => c.role === 'trusted_contact');
   const name = plan.patient.preferredName ?? plan.patient.displayName;
   const out: { action: SensitiveAction; description: string }[] = [];
