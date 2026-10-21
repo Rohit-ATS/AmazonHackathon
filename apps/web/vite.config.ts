@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
  * the same host.
  */
 export default defineConfig({
+  base: process.env.VITE_BASE_PATH ?? '/',
   plugins: [react()],
   resolve: {
     alias: {

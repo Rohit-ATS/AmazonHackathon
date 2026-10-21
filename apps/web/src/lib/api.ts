@@ -29,9 +29,16 @@ export class ApiError extends Error {
   }
 }
 
+const API_BASE = (import.meta.env.VITE_CAREFLOW_API_URL ?? '').replace(/\/$/, '');
+
+/** Resolve API paths for same-origin deployments and the GitHub Pages frontend. */
+export function apiEndpoint(path: string): string {
+  return `${API_BASE}${path}`;
+}
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const token = sessionStorage.getItem('careflow.apiToken');
-  const res = await fetch(path, {
+  const res = await fetch(apiEndpoint(path), {
     method,
     headers: {
       ...(body === undefined ? {} : { 'content-type': 'application/json' }),
@@ -143,7 +150,7 @@ export const api = {
    */
   async tts(text: string): Promise<Blob | undefined> {
     const token = sessionStorage.getItem('careflow.apiToken');
-    const res = await fetch('/api/tts', {
+    const res = await fetch(apiEndpoint('/api/tts'), {
       method: 'POST',
       headers: {
         'content-type': 'application/json',

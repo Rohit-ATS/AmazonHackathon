@@ -97,6 +97,13 @@ Other scripts:
 | `npm run ring:devices` | Call the real Ring Partner API with that account |
 | `npm run deploy` | Deploy the AWS stack (CDK) |
 
+## Continuous verification and GitHub Pages
+
+GitHub Actions runs typechecking, all tests, the production web build, and CDK synthesis on
+every push and pull request. After those checks pass on `main`, it deploys the web app to
+GitHub Pages. See [the Pages setup](docs/connecting.md#github-pages-frontend) for the one-time
+GitHub setting and `CAREFLOW_API_URL` repository variable.
+
 Configuration is optional and documented in [`.env.example`](.env.example). `GET /healthz`
 reports which mode is running, so you never have to guess.
 

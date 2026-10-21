@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AgentTurn, CareSession, TimelineEntry } from '@careflow/shared';
-import { api } from './api.js';
+import { api, apiEndpoint } from './api.js';
 
 export type ConnectionState = 'connecting' | 'live' | 'polling';
 
@@ -89,7 +89,7 @@ export function useLive(): LiveState {
         startPolling();
         return () => { cancelled = true; if (poll) clearInterval(poll); };
       }
-      source = new EventSource('/events/stream');
+      source = new EventSource(apiEndpoint('/events/stream'));
 
       source.addEventListener('open', () => {
         if (!cancelled) setConnection('live');

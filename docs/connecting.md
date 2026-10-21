@@ -140,6 +140,18 @@ alarms. Connect notification actions in AWS for the team channel used during the
 With a tunnel, set `CAREFLOW_SELF_URL` to the public URL so the demo controls post to the
 right place.
 
+### GitHub Pages frontend
+
+Every push and pull request runs typechecking, all tests, the production web build, and CDK
+synthesis in `.github/workflows/ci-pages.yml`. A green push to `main` then publishes
+`apps/web/dist` to GitHub Pages.
+
+In GitHub, select **Settings → Pages → Source: GitHub Actions** and add the repository
+variable `CAREFLOW_API_URL` with the deployed API Gateway URL, for example
+`https://abc123.execute-api.us-east-1.amazonaws.com`. The Pages build uses that URL for API
+requests and `/AmazonHackathon/` as its asset base. Configure `CAREFLOW_WEB_ORIGIN` during
+the AWS deployment as `https://rohit-ats.github.io` so API Gateway permits that browser origin.
+
 ---
 
 ## Tier 4 — Ring (where the real blocker is)
