@@ -1,19 +1,17 @@
 /*
  * CareFlow — visual system.
  *
- * Warm clinical: a deep teal brand on warm off-white paper, with a calm slate for text and
- * dark panels. The people using this are recovering at home, and the people reviewing it
- * are clinicians and family. It should feel like something a care provider hands you, not
- * like a product launch.
+ * Acid-lime, near-black and paper-white: the brand this product is built around.
  *
- * Colour rules, which exist for contrast rather than taste:
+ * One rule governs the palette: lime is a *surface*, never a text colour. Lime text on
+ * white is roughly 1.5:1 and unreadable; black on lime is about 17:1. So every lime area
+ * carries black type, and every black area carries white. That keeps the look exactly as
+ * intended and lands comfortably past AA, which matters more here than on a landing page —
+ * the people using this may be older or low-vision.
  *
- *  - Teal (--brand) carries the brand on light grounds. At #0f6b6b it is about 5.9:1 on
- *    paper, so it is safe for text, borders and solid buttons with white type.
- *  - The acid lime survives only as --accent, and only ever on a dark ground, where it runs
- *    about 14:1. It is never a large surface under small dark text.
- *  - Every state colour is a pair: a dark ink for the type, a soft tint for the ground.
- *    They are used together, never crossed over.
+ * The one deliberate departure: the recording state keeps its coral, but carries black
+ * type rather than white. White on that coral is about 2.9:1, which is not a readable
+ * label on the control that tells someone the microphone is live.
  *
  * `--scale` drives every size through one multiplier, so "Larger text" reflows the whole
  * layout rather than only enlarging glyphs.
@@ -28,33 +26,23 @@
 :root {
   --scale: 1;
 
-  /* Brand */
-  --brand: #0f6b6b;
-  --brand-deep: #0a5050;
-  --brand-soft: #e7f2f1;
-  --brand-line: #bcd9d6;
-
-  /* The lime, demoted: dark grounds only. */
-  --accent: #d8f06a;
-
-  /* Neutrals — warm, so the page reads softer than a clinical white */
+  /* Core palette */
+  --lime: #d9f550;
+  --lime-deep: #c7e52f;
+  --lime-soft: #eefbb0;
+  --ink: #0c0d0c;
+  --ink-2: #1b1d1a;
   --paper: #ffffff;
-  --surface: #f7f5f1;
-  --surface-2: #efebe4;
-  --line: #e4dfd7;
-  --line-strong: #c9c2b6;
-  --ink: #17201f;
-  --text: #1b2422;
-  --text-muted: #5d6a66;
-
-  /* States — each a type colour and a ground that belong together */
+  --mist: #f2f3ee;
+  --mist-2: #e7e9e0;
+  --line: #e2e4da;
+  --text: #0c0d0c;
+  --text-muted: #63675c;
+  --coral: #ff6b5e;
+  --coral-soft: #ffe8e5;
   --ok: #1f7a4d;
-  --ok-soft: #e4f4ec;
+  --ok-soft: #e2f5ea;
   --warn: #8a5a00;
-  --warn-soft: #fbf0d8;
-  --danger: #b3261e;
-  --danger-soft: #fdeceb;
-  --rec: #c2402f;
 
   /* Shape — rounded enough to feel approachable, not bubbly */
   --r-xs: 8px;
@@ -66,7 +54,7 @@
   --gap: calc(1.1rem * var(--scale));
 
   /* Shadows stay faint. A care tool should sit flat on the page. */
-  --shadow-sm: 0 1px 2px rgb(23 32 31 / 5%), 0 2px 8px rgb(23 32 31 / 4%);
+  --shadow-sm: 0 1px 2px rgb(12 13 12 / 5%), 0 6px 18px rgb(12 13 12 / 5%);
 
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
@@ -84,7 +72,7 @@ html {
 
 body {
   margin: 0;
-  background: var(--surface);
+  background: var(--paper);
   color: var(--text);
   font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   font-weight: 450;
@@ -112,7 +100,7 @@ button {
 }
 
 :focus-visible {
-  outline: 3px solid var(--brand);
+  outline: 3px solid var(--ink);
   outline-offset: 2px;
   border-radius: 6px;
 }
@@ -135,7 +123,7 @@ button {
   top: -5rem;
   z-index: 100;
   padding: 0.85rem 1.3rem;
-  background: var(--brand);
+  background: var(--ink);
   color: var(--paper);
   border-radius: var(--pill);
   font-weight: 700;
@@ -190,13 +178,13 @@ button {
   width: 1.9em;
   height: 1.9em;
   border-radius: var(--r-sm);
-  background: var(--brand);
+  background: var(--lime);
   display: grid;
   place-items: center;
   font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.04em;
-  color: var(--paper);
+  color: var(--ink);
   flex: none;
 }
 
@@ -241,14 +229,14 @@ button {
 }
 
 .tab:hover {
-  background: var(--paper);
+  background: var(--mist-2);
   border-color: var(--line);
   color: var(--text);
 }
 
 .tab[aria-selected='true'] {
-  background: var(--brand);
-  border-color: var(--brand);
+  background: var(--ink);
+  border-color: var(--ink);
   color: var(--paper);
 }
 
@@ -267,14 +255,14 @@ main {
 
 .card {
   position: relative;
-  background: var(--paper);
+  background: var(--mist);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   padding: calc(var(--gap) * 1.15);
 }
 
 .card.plain {
-  background: var(--surface);
+  background: var(--paper);
 }
 
 .card > header {
@@ -365,9 +353,9 @@ main {
   border-radius: var(--r-lg);
   padding: clamp(1.2rem, 2.4vw, 1.9rem);
   padding-left: clamp(1.45rem, 2.7vw, 2.2rem);
-  background: var(--brand-soft);
-  border: 1px solid var(--brand-line);
-  color: var(--text);
+  background: var(--lime);
+  border: 1px solid var(--lime-deep);
+  color: var(--ink);
   overflow: hidden;
 }
 
@@ -378,36 +366,37 @@ main {
   top: 0;
   bottom: 0;
   width: 6px;
-  background: var(--brand);
+  background: var(--ink);
 }
 
 .hero.is-idle {
-  background: var(--paper);
-  border-color: var(--line);
+  background: var(--lime);
+  border-color: var(--lime-deep);
 }
 
 .hero.is-idle::before {
-  background: var(--line-strong);
+  background: var(--ink);
 }
 
 /* Confirmation is the one moment that should take the whole room. */
 .hero.is-confirming {
-  background: var(--brand-deep);
-  border-color: var(--brand-deep);
+  background: var(--ink);
+  border-color: var(--ink);
   color: var(--paper);
 }
 
 .hero.is-confirming::before {
-  background: var(--accent);
+  background: var(--lime);
 }
 
 .hero.is-done {
-  background: var(--ok-soft);
-  border-color: #c2e3d2;
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
 }
 
 .hero.is-done::before {
-  background: var(--ok);
+  background: var(--lime);
 }
 
 .hero-label {
@@ -447,9 +436,9 @@ main {
   min-width: 48px;
   padding: 0 1.35rem;
   border-radius: var(--pill);
-  border: 1.5px solid var(--line-strong);
+  border: 1.5px solid var(--ink);
   background: var(--paper);
-  color: var(--text);
+  color: var(--ink);
   font-weight: 650;
   letter-spacing: -0.005em;
   display: inline-flex;
@@ -461,8 +450,8 @@ main {
 }
 
 .btn:hover:not(:disabled) {
-  border-color: var(--brand);
-  color: var(--brand);
+  border-color: var(--ink);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn:disabled {
@@ -471,51 +460,52 @@ main {
 }
 
 .btn.primary {
-  background: var(--brand);
-  border-color: var(--brand);
+  background: var(--ink);
+  border-color: var(--ink);
   color: var(--paper);
 }
 
 .btn.primary:hover:not(:disabled) {
-  background: var(--brand-deep);
-  border-color: var(--brand-deep);
+  background: var(--ink-2);
+  border-color: var(--ink-2);
   color: var(--paper);
 }
 
 /* The suggested option in a list of choices: present, but not a second primary. */
 .btn.lime {
-  background: var(--brand-soft);
-  border-color: var(--brand-line);
-  color: var(--brand-deep);
+  background: var(--lime);
+  border-color: var(--lime);
+  color: var(--ink);
 }
 
 .btn.lime:hover:not(:disabled) {
-  border-color: var(--brand);
-  color: var(--brand-deep);
+  background: var(--lime-deep);
+  border-color: var(--lime-deep);
+  color: var(--ink);
 }
 
 .btn.ghost {
   background: transparent;
-  border-color: var(--line-strong);
+  border-color: var(--line);
 }
 
 /* Approve / decline. Green for the affirmative, plain for the decline — a refusal should
    never look like the harder button to press. */
 .btn.yes {
-  background: var(--ok);
-  border-color: var(--ok);
-  color: var(--paper);
+  background: var(--lime);
+  border-color: var(--lime);
+  color: var(--ink);
 }
 
 .btn.yes:hover:not(:disabled) {
-  background: #19653f;
-  border-color: #19653f;
-  color: var(--paper);
+  background: var(--lime-deep);
+  border-color: var(--lime-deep);
+  color: var(--ink);
 }
 
 .btn.no {
   background: var(--paper);
-  border-color: var(--line-strong);
+  border-color: var(--ink);
   color: var(--text);
 }
 
@@ -537,20 +527,20 @@ main {
 /* Recording. A deep red rather than the old coral, which was too light to carry white type
    at anything like an accessible contrast. */
 .btn.listening {
-  background: var(--rec);
-  border-color: var(--rec);
-  color: var(--paper);
+  background: var(--coral);
+  border-color: var(--coral);
+  color: var(--ink);
   animation: pulse 1.6s ease-in-out infinite;
 }
 
 .btn.listening:hover:not(:disabled) {
-  color: var(--paper);
-  border-color: var(--rec);
+  color: var(--ink);
+  border-color: var(--coral);
 }
 
 @keyframes pulse {
   50% {
-    box-shadow: 0 0 0 10px rgb(194 64 47 / 14%);
+    box-shadow: 0 0 0 12px rgb(255 107 94 / 18%);
   }
 }
 
@@ -573,15 +563,15 @@ main {
 }
 
 .bubble.agent {
-  background: var(--surface);
+  background: var(--paper);
   border: 1px solid var(--line);
   border-bottom-left-radius: var(--r-xs);
 }
 
 .bubble.patient {
-  background: var(--brand-soft);
-  border: 1px solid var(--brand-line);
-  color: var(--text);
+  background: var(--lime);
+  border: 1px solid var(--lime);
+  color: var(--ink);
   margin-left: auto;
   border-bottom-right-radius: var(--r-xs);
 }
@@ -613,7 +603,7 @@ main {
   gap: 0.75rem;
   padding: calc(var(--gap) * 1.15);
   border-radius: var(--r-lg);
-  background: var(--brand-deep);
+  background: var(--ink);
   color: var(--paper);
 }
 
@@ -622,7 +612,7 @@ main {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--accent);
+  color: var(--lime);
 }
 
 .consent-action {
@@ -654,28 +644,28 @@ main {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  background: var(--surface-2);
+  background: var(--mist-2);
   color: var(--text-muted);
   white-space: nowrap;
 }
 
 .badge.ok {
-  background: var(--ok-soft);
-  color: var(--ok);
+  background: var(--lime);
+  color: var(--ink);
 }
 
 .badge.warn {
-  background: var(--warn-soft);
+  background: var(--lime-soft);
   color: var(--warn);
 }
 
 .badge.danger {
-  background: var(--danger-soft);
-  color: var(--danger);
+  background: var(--coral-soft);
+  color: #a3281d;
 }
 
 .badge.accent {
-  background: var(--brand);
+  background: var(--ink);
   color: var(--paper);
 }
 
@@ -744,24 +734,24 @@ main {
 }
 
 .timeline .dot.k-ring_event {
-  background: var(--paper);
-  box-shadow: inset 0 0 0 3px var(--brand);
+  background: var(--lime);
+  box-shadow: inset 0 0 0 2px var(--ink);
 }
 .timeline .dot.k-ai_decision {
   background: var(--ink);
 }
 .timeline .dot.k-consent {
-  background: var(--ok);
+  background: var(--lime);
 }
 .timeline .dot.k-action {
-  background: var(--brand);
+  background: var(--lime);
 }
 .timeline .dot.k-refusal {
-  background: var(--danger);
+  background: var(--coral);
 }
 .timeline .dot.k-patient_choice {
   background: var(--paper);
-  box-shadow: inset 0 0 0 2.5px var(--line-strong);
+  box-shadow: inset 0 0 0 2.5px var(--ink);
 }
 
 .timeline .text {
@@ -823,8 +813,8 @@ button.row {
 }
 
 button.row:hover {
-  border-color: var(--brand);
-  background: var(--brand-soft);
+  border-color: var(--ink);
+  box-shadow: var(--shadow-sm);
 }
 
 .row .grow {
@@ -871,7 +861,7 @@ button.row:hover {
 }
 
 .panel-dark .eyebrow {
-  color: var(--accent);
+  color: var(--lime);
 }
 
 .panel-dark > header {
@@ -895,8 +885,8 @@ button.row:hover {
 
 /* On a dark ground the lime is about 14:1, which is where it belongs. */
 .panel-dark .badge.ok {
-  background: rgb(216 240 106 / 18%);
-  color: var(--accent);
+  background: rgb(217 245 80 / 18%);
+  color: var(--lime);
 }
 
 .panel-dark .badge.danger {
@@ -916,8 +906,8 @@ button.row:hover {
 }
 
 .panel-dark .btn:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--lime);
+  color: var(--lime);
 }
 
 /* =================================================================== notices */
@@ -925,18 +915,18 @@ button.row:hover {
 .notice {
   padding: 0.85rem 1.05rem;
   border-radius: var(--r-sm);
-  background: var(--danger-soft);
-  border: 1px solid #f3c6c2;
-  border-left: 4px solid var(--danger);
-  color: var(--danger);
+  background: var(--coral-soft);
+  border: 1px solid var(--coral);
+  border-left: 4px solid var(--coral);
+  color: #8e2419;
   font-weight: 600;
 }
 
 .notice.info {
-  background: var(--brand-soft);
-  border-color: var(--brand-line);
-  border-left-color: var(--brand);
-  color: var(--brand-deep);
+  background: var(--lime-soft);
+  border-color: var(--lime-deep);
+  border-left-color: var(--lime-deep);
+  color: var(--ink);
 }
 
 /* ================================================================ demo strip */
@@ -959,7 +949,7 @@ button.row:hover {
 }
 
 .demo-strip .eyebrow {
-  color: var(--accent);
+  color: var(--lime);
 }
 
 .demo-strip > header {
@@ -973,8 +963,8 @@ button.row:hover {
 }
 
 .demo-strip .btn:hover:not(:disabled) {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--lime);
+  border-color: var(--lime);
   color: var(--ink);
 }
 
@@ -983,7 +973,7 @@ button.row:hover {
   border: 1px solid rgb(255 255 255 / 12%);
   border-radius: var(--r-sm);
   padding: 0.75rem 0.85rem;
-  color: var(--accent);
+  color: var(--lime);
   overflow-x: auto;
 }
 
@@ -1004,8 +994,8 @@ button.row:hover {
 }
 
 .demo-strip .badge.ok {
-  background: rgb(216 240 106 / 18%);
-  color: var(--accent);
+  background: rgb(217 245 80 / 18%);
+  color: var(--lime);
 }
 
 .demo-strip .badge.danger {
