@@ -1359,6 +1359,115 @@ button.row:hover {
   background: var(--mist);
 }
 
+/* =========================================================== caregiver header */
+
+/*
+ * The patient banner, compressed. It was a full-height hero with a 3rem name and two
+ * oversized figures, which pushed the schedule — the thing a caregiver actually came for —
+ * below the fold. Same information, about a third of the height: identity on the left,
+ * today's counts as inline figures, and the care-team filter underneath.
+ */
+.care-head {
+  display: grid;
+  gap: 0.9rem;
+  padding: calc(var(--gap) * 0.95) calc(var(--gap) * 1.1);
+  border-radius: var(--r-lg);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.care-id {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.85rem 1.1rem;
+}
+
+.care-avatar {
+  flex: none;
+  width: 2.9rem;
+  height: 2.9rem;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r);
+  background: var(--lime);
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+}
+
+.care-id-text {
+  flex: 1;
+  min-width: 14ch;
+}
+
+.care-id-text .eyebrow {
+  color: var(--lime);
+  margin-bottom: 0;
+}
+
+.care-head h2 {
+  font-size: clamp(1.25rem, 1.05rem + 0.8vw, 1.6rem);
+  color: var(--paper);
+}
+
+.care-context {
+  margin: 0.2rem 0 0;
+  max-width: 62ch;
+  color: rgb(255 255 255 / 66%);
+  font-size: 0.87rem;
+}
+
+/* The counts, inline. Big numerals looked like a dashboard metric; these read as a
+   sentence, which is what they are. */
+.care-figures {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.1rem;
+  margin-left: auto;
+}
+
+.care-figure {
+  font-size: 0.87rem;
+  color: rgb(255 255 255 / 70%);
+  white-space: nowrap;
+}
+
+.care-figure strong {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--lime);
+  margin-right: 0.15rem;
+}
+
+.care-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgb(255 255 255 / 12%);
+}
+
+/* Reuses the settings segment, re-grounded for a dark panel. */
+.care-switch .seg {
+  min-height: 40px;
+  background: rgb(255 255 255 / 7%);
+  color: rgb(255 255 255 / 78%);
+}
+
+.care-switch .seg:hover {
+  background: rgb(255 255 255 / 13%);
+  color: var(--paper);
+}
+
+.care-switch .seg.is-on {
+  background: var(--lime);
+  color: var(--ink);
+  box-shadow: none;
+}
+
 /* ================================================================= dark panel */
 
 .panel-dark {
