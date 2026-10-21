@@ -126,125 +126,132 @@ export function PatientScreen({
         </p>
       )}
 
-      <div
-        className="chat-log"
-        ref={logRef}
-        role="log"
-        // polite, not assertive: the agent's turn should be announced without cutting a
-        // screen reader off mid-sentence.
-        aria-live="polite"
-        aria-atomic="false"
-      >
-        {!session && (
-          <div className="chat-empty">
-            <p style={{ marginTop: 0 }}>
-              Nothing is happening right now. When someone comes to the door, CareFlow will
-              explain what it sees and ask what you would like to do — here, in this
-              conversation.
-            </p>
-            <p className="small muted" style={{ marginBottom: 0 }}>
-              You can also start one yourself with <strong>I need help</strong> below, which
-              tells your care team you need them.
-            </p>
-          </div>
-        )}
-
-        {notice && (
-          <p className="chat-notice" role="status">
-            {notice}
-          </p>
-        )}
-
-        {session?.turns.map((turn) => (
-          <div
-            key={turn.turnId}
-            className={`bubble ${turn.speaker === 'patient' ? 'patient' : 'agent'}`}
-          >
-            <span className="who">{turn.speaker === 'patient' ? 'You' : 'CareFlow'}</span>
-            {turn.text}
-          </div>
-        ))}
-
-        {voice.interim && (
-          <div className="bubble patient interim">
-            <span className="who">You</span>
-            {voice.interim}…
-          </div>
-        )}
-
-        {awaitingConfirmation && session?.pendingAction && (
-          <div className="consent" aria-labelledby="consent-heading">
-            <div className="consent-label" id="consent-heading">
-              Your approval is needed
+      <div className="chat-body">
+        <div
+          className="chat-log"
+            ref={logRef}
+            role="log"
+          // polite, not assertive: the agent's turn should be announced without cutting a
+          // screen reader off mid-sentence.
+          aria-live="polite"
+          aria-atomic="false"
+        >
+          {!session && (
+            <div className="chat-empty">
+              <p style={{ marginTop: 0 }}>
+                Nothing is happening right now. When someone comes to the door, CareFlow will
+                explain what it sees and ask what you would like to do — here, in this
+                conversation.
+              </p>
+              <p className="small muted" style={{ marginBottom: 0 }}>
+                You can also start one yourself with <strong>I need help</strong> below, which
+                tells your care team you need them.
+              </p>
             </div>
-            <div className="consent-action">CareFlow will {session.pendingAction.summary}.</div>
-            {session.pendingAction.message && (
-              <div className="small muted">Message: “{session.pendingAction.message}”</div>
-            )}
+          )}
+
+          {notice && (
+            <p className="chat-notice" role="status">
+              {notice}
+            </p>
+          )}
+
+          {session?.turns.map((turn) => (
+            <div
+              key={turn.turnId}
+              className={`bubble ${turn.speaker === 'patient' ? 'patient' : 'agent'}`}
+            >
+              <span className="who">{turn.speaker === 'patient' ? 'You' : 'CareFlow'}</span>
+              {turn.text}
+            </div>
+          ))}
+
+          {voice.interim && (
+            <div className="bubble patient interim">
+              <span className="who">You</span>
+              {voice.interim}…
+            </div>
+          )}
+
+          {awaitingConfirmation && session?.pendingAction && (
+            <div className="consent" aria-labelledby="consent-heading">
+              <div className="consent-label" id="consent-heading">
+                Your approval is needed
+              </div>
+              <div className="consent-action">CareFlow will {session.pendingAction.summary}.</div>
+              {session.pendingAction.message && (
+                <div className="small muted">Message: “{session.pendingAction.message}”</div>
+              )}
+              <div className="chat-actions">
+                <button
+                  type="button"
+                  className="btn yes big"
+                  onClick={() => onConfirm(true)}
+                  disabled={busy}
+                >
+                  Yes, do that
+                </button>
+                <button
+                  type="button"
+                  className="btn no big"
+                  onClick={() => onConfirm(false)}
+                  disabled={busy}
+                >
+                  No, don’t
+                </button>
+              </div>
+              <p className="small muted" style={{ margin: 0 }}>
+                Nothing has been sent yet. Nothing happens until you say yes.
+              </p>
+            </div>
+          )}
+
+          {/* The offered choices live in the thread, under the turn that offered them. The
+              buttons are the real interface, not a fallback for when speech fails. The
+              approval block does not: it sits below the thread, in a constant place, so it
+              cannot scroll out of view while someone is reading it. */}
+          {options.length > 0 && !awaitingConfirmation && !closed && (
             <div className="chat-actions">
-              <button
-                type="button"
-                className="btn yes big"
-                onClick={() => onConfirm(true)}
-                disabled={busy}
-              >
-                Yes, do that
-              </button>
-              <button
-                type="button"
-                className="btn no big"
-                onClick={() => onConfirm(false)}
-                disabled={busy}
-              >
-                No, don’t
-              </button>
+              {options.map((option, i) => (
+                <button
+                  key={option.actionId}
+                  className={`btn ${i === 0 ? 'lime' : ''}`}
+                  onClick={() => onChoose(option.actionId)}
+                  disabled={busy}
+                >
+                  {option.label}
+                </button>
+              ))}
             </div>
-            <p className="small muted" style={{ margin: 0 }}>
-              Nothing has been sent yet. Nothing happens until you say yes.
+          )}
+
+        </div>
+
+        {/*
+          * While the microphone is open the orb takes over the conversation area — not the
+          * whole page, so the screen does not change shape underneath the patient. It is
+          * the clearest possible answer to "is it hearing me?" for someone who cannot read
+          * a small label, and it doubles as the recording indicator: on screen for exactly
+          * as long as the microphone is open, with the words heard so far underneath.
+          */}
+        {voice.listening && (
+          <div className="listening" role="dialog" aria-label="Listening">
+            <div className="listening-orb">
+              <SiriOrb size="176px" level={level} />
+            </div>
+            <p className="listening-text">
+              {voice.interim ? `“${voice.interim}…”` : 'Listening… just say what you need.'}
             </p>
+            <button type="button" className="btn big" onClick={voice.stopListening}>
+              Stop listening
+            </button>
           </div>
         )}
-
-        {/* The offered choices live in the thread, under the turn that offered them. The
-            buttons are the real interface, not a fallback for when speech fails. The
-            approval block does not: it sits below the thread, in a constant place, so it
-            cannot scroll out of view while someone is reading it. */}
-        {options.length > 0 && !awaitingConfirmation && !closed && (
-          <div className="chat-actions">
-            {options.map((option, i) => (
-              <button
-                key={option.actionId}
-                className={`btn ${i === 0 ? 'lime' : ''}`}
-                onClick={() => onChoose(option.actionId)}
-                disabled={busy}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        )}
-
       </div>
 
-      {/*
-        * While the microphone is open the orb takes the screen. It is the clearest possible
-        * answer to "is it hearing me?" for someone who cannot read a small label, and it
-        * doubles as the recording indicator — it is on screen exactly as long as the
-        * microphone is, and the words heard so far sit underneath it.
-        */}
-      {voice.listening && (
-        <div className="listening" role="dialog" aria-label="Listening">
-          <SiriOrb size="176px" level={level} />
-          <p className="listening-text">
-            {voice.interim ? `“${voice.interim}…”` : 'Listening… just say what you need.'}
-          </p>
-          <button type="button" className="btn big" onClick={voice.stopListening}>
-            Stop listening
-          </button>
-        </div>
-      )}
-
-      <div className="composer">
+      {/* The bar shrinks away while the orb is up: two ways in at once is a choice nobody
+          needs to make mid-sentence. It returns the moment listening stops. */}
+      <div className={`composer${voice.listening ? ' is-hidden' : ''}`} aria-hidden={voice.listening}>
         <form className="composer-row" onSubmit={submit}>
           <label className="sr-only" htmlFor="say">
             Type what you would like CareFlow to do
