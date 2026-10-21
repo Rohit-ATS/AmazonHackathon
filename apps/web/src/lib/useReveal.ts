@@ -1,6 +1,10 @@
 /**
  * Scroll reveals.
  *
+ * One quiet fade, uniform across the app. The staggered, directional variants were removed
+ * with the rest of the decorative layer: on a list they made the newest row arrive last,
+ * which is the wrong way round for the entry someone is waiting to see.
+ *
  * One IntersectionObserver watches everything marked `data-reveal` and adds `is-visible`
  * when it comes into view; the CSS does the rest. Elements are unobserved once revealed, so
  * scrolling back up does not re-animate — content that keeps re-fading is distracting
@@ -97,9 +101,4 @@ export function useStuckHeader(): void {
       sentinel.remove();
     };
   }, []);
-}
-
-/** Stagger helper: `style={stagger(i)}` on a list of revealed children. */
-export function stagger(index: number, stepMs = 70): React.CSSProperties {
-  return { ['--delay' as string]: `${Math.min(index, 8) * stepMs}ms` };
 }
