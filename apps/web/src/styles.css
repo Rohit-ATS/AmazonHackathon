@@ -397,21 +397,41 @@ main {
 }
 
 /*
- * The approval block sits between the thread and the composer rather than inside the
- * thread. Inside, it was one more message that appeared and shifted everything as the log
- * scrolled; here it is a fixed band in a constant place, which is where something asking
- * for a decision belongs. It cannot scroll out of view while the patient reads it.
+ * The approval arrives in the thread, at the point in the conversation where it was asked
+ * for, and pops rather than appears — a block that asks permission should read as an event,
+ * not as another paragraph that was always there. The thread auto-scrolls to it.
  */
-.chat .consent {
-  flex: none;
-  animation: consent-in 220ms var(--ease);
+.chat-log .consent {
+  margin-top: 0.3rem;
+  transform-origin: 50% 0;
+  animation: consent-pop 360ms var(--ease) both;
 }
 
-@keyframes consent-in {
-  from {
+@keyframes consent-pop {
+  0% {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(10px) scale(0.94);
   }
+  60% {
+    opacity: 1;
+    transform: translateY(0) scale(1.015);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* An explanation from the app, not words the agent spoke. Styled so it cannot be mistaken
+   for a turn in the transcript. */
+.chat-notice {
+  margin: 0;
+  padding: 0.8rem 1rem;
+  border-radius: var(--r-sm);
+  border: 1px dashed var(--line);
+  background: var(--paper);
+  color: var(--text-muted);
+  font-size: 0.9rem;
 }
 
 /* The composer: speak, type, or press a button — three ways to say the same thing. */
@@ -699,6 +719,164 @@ main {
 .bubble.interim {
   opacity: 0.65;
   font-style: italic;
+}
+
+/* ============================================================== mic + listening */
+
+/* The microphone control: a rounded square, as in the reference, not another pill. */
+.mic {
+  flex: none;
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--ink);
+  border-radius: var(--r);
+  background: var(--ink);
+  color: var(--paper);
+  transition: background-color 160ms var(--ease), color 160ms var(--ease),
+    border-color 160ms var(--ease);
+}
+
+.mic:hover:not(:disabled) {
+  background: var(--ink-2);
+}
+
+.mic:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.mic.is-live {
+  background: var(--coral);
+  border-color: var(--coral);
+  color: var(--ink);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+/*
+ * The listening surface. It covers the conversation rather than sitting beside it: while
+ * the microphone is open there is exactly one thing to attend to, and for someone who
+ * cannot read a small "listening" label this is the whole message.
+ */
+.listening {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 1.4rem;
+  padding: 2rem;
+  background: rgb(12 13 12 / 92%);
+  backdrop-filter: blur(6px);
+  animation: listening-in 200ms var(--ease);
+}
+
+@keyframes listening-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.listening-text {
+  margin: 0;
+  max-width: 28ch;
+  text-align: center;
+  color: var(--paper);
+  font-size: clamp(1.05rem, 0.95rem + 0.6vw, 1.4rem);
+  font-weight: 600;
+}
+
+.listening .btn {
+  background: var(--paper);
+  border-color: var(--paper);
+  color: var(--ink);
+}
+
+/* ======================================================================== orb */
+
+/*
+ * Adapted from the siri-orb component: layered conic gradients rotated by an animated
+ * custom property, blurred and contrast-pushed into a liquid. `--level` is live microphone
+ * amplitude, so the orb swells with the voice instead of animating on a fixed loop.
+ */
+@property --angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.siri-orb {
+  display: grid;
+  grid-template-areas: 'stack';
+  overflow: hidden;
+  border-radius: 50%;
+  position: relative;
+  /* The voice drives size and glow. 160ms keeps it responsive without jitter. */
+  transform: scale(calc(1 + var(--level, 0) * 0.18));
+  box-shadow: 0 0 calc(18px + var(--level, 0) * 70px)
+    rgb(217 245 80 / calc(0.18 + var(--level, 0) * 0.5));
+  transition: transform 160ms ease-out, box-shadow 160ms ease-out;
+}
+
+.siri-orb::before,
+.siri-orb::after {
+  content: '';
+  display: block;
+  grid-area: stack;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.siri-orb::before {
+  background:
+    conic-gradient(from calc(var(--angle) * 2) at 25% 70%, var(--c3), transparent 20% 80%, var(--c3)),
+    conic-gradient(from calc(var(--angle) * 2) at 45% 75%, var(--c2), transparent 30% 60%, var(--c2)),
+    conic-gradient(from calc(var(--angle) * -3) at 80% 20%, var(--c1), transparent 40% 60%, var(--c1)),
+    conic-gradient(from calc(var(--angle) * 2) at 15% 5%, var(--c2), transparent 10% 90%, var(--c2)),
+    conic-gradient(from calc(var(--angle) * 1) at 20% 80%, var(--c1), transparent 10% 90%, var(--c1)),
+    conic-gradient(from calc(var(--angle) * -2) at 85% 10%, var(--c3), transparent 20% 80%, var(--c3));
+  box-shadow: inset var(--bg) 0 0 var(--shadow-spread) calc(var(--shadow-spread) * 0.2);
+  filter: blur(var(--blur-amount)) contrast(var(--contrast-amount));
+  /* Spins faster the louder the voice. */
+  animation: orb-rotate calc(var(--animation-duration) / (1 + var(--level, 0) * 2)) linear infinite;
+}
+
+.siri-orb::after {
+  background-image: radial-gradient(
+    circle at center,
+    var(--bg) var(--dot-size),
+    transparent var(--dot-size)
+  );
+  background-size: calc(var(--dot-size) * 2) calc(var(--dot-size) * 2);
+  backdrop-filter: blur(calc(var(--blur-amount) * 2)) contrast(calc(var(--contrast-amount) * 2));
+  mix-blend-mode: overlay;
+}
+
+.siri-orb[style*='--mask-radius: 0%']::after {
+  mask-image: none;
+}
+
+.siri-orb:not([style*='--mask-radius: 0%'])::after {
+  mask-image: radial-gradient(black var(--mask-radius), transparent 75%);
+}
+
+@keyframes orb-rotate {
+  to {
+    --angle: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .siri-orb::before {
+    animation: none;
+  }
+  /* The orb still answers the voice; it just does not spin. */
+  .siri-orb {
+    transition: none;
+  }
 }
 
 /* ===================================================================== consent */
