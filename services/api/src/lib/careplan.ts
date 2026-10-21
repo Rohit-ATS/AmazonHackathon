@@ -9,7 +9,15 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import type { CarePlan, Contact, Patient, ScheduledVisit } from '@careflow/shared';
+import type {
+  Appointment,
+  CarePlan,
+  Contact,
+  Medication,
+  Patient,
+  ScheduledVisit,
+  SupportResource,
+} from '@careflow/shared';
 
 interface VisitTemplate {
   visitId: string;
@@ -29,11 +37,29 @@ interface VisitTemplate {
   demoOffsetMinutes?: [number, number];
 }
 
+interface AppointmentTemplate extends Omit<Appointment, 'startsAt'> {
+  /** Relative form: "+2d 10:30", so the demo works on any day. */
+  startsAt: string;
+}
+
 interface CarePlanFixture {
   patient: Patient;
   contacts: Contact[];
   devices: CarePlan['devices'];
   visitTemplates: VisitTemplate[];
+  medications: Medication[];
+  appointments: AppointmentTemplate[];
+  supportResources: SupportResource[];
+}
+
+/** Resolve "+2d 10:30" against now. Anything already ISO is passed straight through. */
+function resolveRelative(value: string, now: Date): string {
+  const match = value.match(/^\+(\d+)d\s+(\d{1,2}):(\d{2})$/);
+  if (!match) return new Date(value).toISOString();
+  const d = new Date(now);
+  d.setDate(d.getDate() + Number(match[1]));
+  d.setHours(Number(match[2]), Number(match[3]), 0, 0);
+  return d.toISOString();
 }
 
 function atTimeToday(hhmm: string, base: Date): string {
@@ -91,6 +117,12 @@ export async function loadCarePlan(now = new Date()): Promise<CarePlan> {
     contacts: fixture.contacts,
     devices: fixture.devices,
     visits,
+    medications: fixture.medications ?? [],
+    appointments: (fixture.appointments ?? []).map((a) => ({
+      ...a,
+      startsAt: resolveRelative(a.startsAt, now),
+    })),
+    supportResources: fixture.supportResources ?? [],
   };
   cachedDay = day;
   return cached;

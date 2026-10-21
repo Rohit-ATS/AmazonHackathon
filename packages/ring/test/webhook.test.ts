@@ -29,6 +29,9 @@ const carePlan = {
   contacts: [],
   visits: [],
   devices: [{ deviceId: 'front-door-001', displayName: 'Front door', kind: 'doorbell' as const }],
+  medications: [],
+  appointments: [],
+  supportResources: [],
 } satisfies CarePlan;
 
 describe('signature verification', () => {

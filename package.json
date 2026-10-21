@@ -28,7 +28,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p apps/web/tsconfig.json --noEmit",
     "deploy": "npm run deploy -w @careflow/infra",
     "demo:story": "tsx scripts/demo-story.ts",
-    "build": "npm run build -w @careflow/web"
+    "build": "npm run build -w @careflow/web",
+    "mcp:demo": "tsx scripts/mcp-demo.ts",
+    "demo:all": "npm run demo:story && npm run mcp:demo"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

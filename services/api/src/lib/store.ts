@@ -5,6 +5,11 @@
  *
  *   pk                    sk                      item
  *   SESSION#<id>          META                    CareSession
+ *   RINGLINK#<state>      META                    pending PKCE verifier (TTL)
+ *   RINGACCT#default      META                    linked Ring tokens
+ *   MEMORY#<patientId>    <iso>#<memoryId>        what the companion remembers
+ *   CHECKIN#<patientId>   <iso>#<checkInId>       non-clinical check-ins
+ *   REMINDER#<patientId>  <iso>#<reminderId>      reminders
  *   PLAN#<patientId>      META                    CarePlan overrides
  *   EVENT#<requestId>     META                    idempotency marker (TTL)
  *   TIMELINE#<yyyy-mm-dd> <iso>#<entryId>         TimelineEntry
@@ -20,7 +25,15 @@
 
 import { readFile, writeFile, rename, unlink } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
-import type { AuditRecord, CareSession, TimelineEntry } from '@careflow/shared';
+import type {
+  AuditRecord,
+  CareSession,
+  CheckIn,
+  Memory,
+  Reminder,
+  TimelineEntry,
+} from '@careflow/shared';
+import type { RingTokens } from '@careflow/ring';
 import type { Config } from './config.js';
 
 interface Row {
@@ -310,6 +323,113 @@ export class Store {
   async listAudit(sessionId: string): Promise<AuditRecord[]> {
     const rows = await this.backend.queryByPk(`AUDIT#${sessionId}`);
     return rows.map(stripKeys<AuditRecord>);
+  }
+
+  // -- Companion memory -----------------------------------------------------
+
+  /**
+   * Remember something about the person.
+   *
+   * This is what makes tomorrow's conversation not a cold start, and it is also the most
+   * sensitive thing CareFlow holds — so it is scoped per patient, readable by their care
+   * team, and never used for anything but talking to them.
+   */
+  async saveMemory(patientId: string, memory: Memory): Promise<void> {
+    await this.backend.put({
+      pk: `MEMORY#${patientId}`,
+      sk: `${memory.createdAt}#${memory.memoryId}`,
+      ...memory,
+    });
+  }
+
+  async listMemories(patientId: string, limit = 50): Promise<Memory[]> {
+    const rows = await this.backend.queryByPk(`MEMORY#${patientId}`, limit);
+    return rows.map(stripKeys<Memory>);
+  }
+
+  async saveCheckIn(patientId: string, checkIn: CheckIn): Promise<void> {
+    await this.backend.put({
+      pk: `CHECKIN#${patientId}`,
+      sk: `${checkIn.at}#${checkIn.checkInId}`,
+      ...checkIn,
+    });
+  }
+
+  async listCheckIns(patientId: string, limit = 20): Promise<CheckIn[]> {
+    const rows = await this.backend.queryByPk(`CHECKIN#${patientId}`, limit);
+    return rows.map(stripKeys<CheckIn>);
+  }
+
+  async saveReminder(patientId: string, reminder: Reminder): Promise<void> {
+    await this.backend.put({
+      pk: `REMINDER#${patientId}`,
+      sk: `${reminder.dueAt}#${reminder.reminderId}`,
+      ...reminder,
+    });
+  }
+
+  async listReminders(patientId: string, limit = 50): Promise<Reminder[]> {
+    const rows = await this.backend.queryByPk(`REMINDER#${patientId}`, limit);
+    return rows.map(stripKeys<Reminder>);
+  }
+
+  // -- Ring account linking -------------------------------------------------
+
+  /**
+   * Hold the PKCE verifier between the authorize redirect and the callback.
+   *
+   * Keyed on the `state` we generated, which is also what proves the callback belongs to
+   * the link attempt we started rather than one someone else began.
+   */
+  async savePendingLink(
+    state: string,
+    data: { verifier: string; createdAt: number; expiresAt: number },
+  ): Promise<void> {
+    await this.backend.put({
+      pk: `RINGLINK#${state}`,
+      sk: 'META',
+      ...data,
+      ttl: Math.floor(data.expiresAt / 1000),
+    });
+  }
+
+  /**
+   * Read a pending link and immediately invalidate it.
+   *
+   * Single-use by construction: a replayed callback finds nothing and is rejected, rather
+   * than being allowed to exchange the same code twice.
+   */
+  async takePendingLink(
+    state: string,
+  ): Promise<{ verifier: string; createdAt: number; expiresAt: number } | undefined> {
+    const row = await this.backend.get(`RINGLINK#${state}`, 'META');
+    // A consumed marker is still a row, so it has to be checked explicitly. Without this
+    // the second call returns a "pending link" with no verifier and replay protection is
+    // silently absent — which a test caught, and which would have let the same
+    // authorization code be exchanged twice.
+    if (!row || row.consumed === true || typeof row.verifier !== 'string') return undefined;
+
+    await this.backend.put({ pk: `RINGLINK#${state}`, sk: 'META', consumed: true, ttl: row.ttl });
+    return {
+      verifier: String(row.verifier),
+      createdAt: Number(row.createdAt),
+      expiresAt: Number(row.expiresAt),
+    };
+  }
+
+  /** Tokens rotate on every refresh, so this is written each time, not just at link. */
+  async saveRingTokens(tokens: RingTokens): Promise<void> {
+    await this.backend.put({ pk: 'RINGACCT#default', sk: 'META', ...tokens });
+  }
+
+  async getRingTokens(): Promise<RingTokens | undefined> {
+    const row = await this.backend.get('RINGACCT#default', 'META');
+    if (!row?.accessToken) return undefined;
+    return {
+      accessToken: String(row.accessToken),
+      refreshToken: String(row.refreshToken),
+      expiresAt: Number(row.expiresAt),
+    };
   }
 
   async listAllSessions(limit = 25): Promise<CareSession[]> {

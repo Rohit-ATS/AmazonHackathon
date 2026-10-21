@@ -149,11 +149,93 @@ export interface ScheduledVisit {
   status: 'upcoming' | 'arrived' | 'completed' | 'missed';
 }
 
+/**
+ * A medication, as far as CareFlow is allowed to know it.
+ *
+ * Name, schedule and supply — deliberately no dose, no condition, no history. CareFlow
+ * reminds and requests refills; it does not advise. Data it never holds is data it cannot
+ * leak, and cannot reason about when it should not be reasoning at all.
+ */
+export interface Medication {
+  medicationId: string;
+  name: string;
+  /** Human-readable, e.g. "Morning, with breakfast". */
+  schedule: string;
+  /** "HH:MM" local time for reminders. */
+  remindAt: string;
+  refillsRemaining: number;
+  daysSupplyRemaining: number;
+  pharmacy: string;
+  note?: string;
+}
+
+export interface Appointment {
+  appointmentId: string;
+  title: string;
+  withWhom: string;
+  /** ISO-8601 once materialized from the fixture's relative form. */
+  startsAt: string;
+  durationMinutes: number;
+  location: string;
+  kind: 'clinic' | 'home' | 'phone';
+  transportNeeded?: boolean;
+}
+
+/**
+ * Human help, surfaced verbatim when someone is distressed.
+ *
+ * CareFlow hands over to people. It does not counsel, assess risk, or contact emergency
+ * services itself, and it says so.
+ */
+export interface SupportResource {
+  name: string;
+  contact: string;
+  region: string;
+  hours: string;
+  note?: string;
+}
+
+/** Something the companion remembers about the person, so tomorrow is not a cold start. */
+export interface Memory {
+  memoryId: string;
+  /** The fact, in the person's own framing where possible. */
+  text: string;
+  /** Loose grouping: "family", "routine", "likes", "worry", "plan". */
+  topic: string;
+  createdAt: string;
+  /** Where it came from, so a caregiver can tell recall from invention. */
+  source: 'patient' | 'caregiver';
+}
+
+/** A non-clinical check-in. Mood in the person's words, never a score or an assessment. */
+export interface CheckIn {
+  checkInId: string;
+  at: string;
+  /** Free text, e.g. "a bit tired but did the crossword". */
+  summary: string;
+  /** Only ever what they said about themselves. */
+  mood?: string;
+  initiatedBy: 'patient' | 'careflow';
+}
+
+export interface Reminder {
+  reminderId: string;
+  text: string;
+  /** ISO-8601. */
+  dueAt: string;
+  kind: 'medication' | 'appointment' | 'general';
+  createdAt: string;
+  done?: boolean;
+}
+
 export interface CarePlan {
   patient: Patient;
   contacts: Contact[];
   visits: ScheduledVisit[];
   devices: { deviceId: string; displayName: string; kind: 'doorbell' | 'camera' }[];
+  medications: Medication[];
+  appointments: Appointment[];
+  supportResources: SupportResource[];
 }
 
 // ---------------------------------------------------------------------------
@@ -198,6 +280,11 @@ export const ACTION_TYPES = [
    * see EMERGENCY_PROTOTYPE_POLICY for the rules the backend enforces.
    */
   'escalate_care_team',
+  /** Companion actions. All sensitive: each one reaches a person or a pharmacy. */
+  'message_contact',
+  'call_contact',
+  'request_refill',
+  'book_appointment',
   'do_nothing',
 ] as const;
 
@@ -223,6 +310,10 @@ export const SENSITIVE_ACTIONS: readonly ActionType[] = [
   'notify_trusted_contact',
   'message_visitor',
   'escalate_care_team',
+  'message_contact',
+  'call_contact',
+  'request_refill',
+  'book_appointment',
 ];
 
 /**
@@ -310,7 +401,11 @@ export interface AgentTurn {
   rationale?: string;
 }
 
-export type SessionMode = 'visitor' | 'emergency_assist_prototype';
+export type SessionMode =
+  | 'visitor'
+  | 'emergency_assist_prototype'
+  /** A conversation with the always-on companion, over MCP. */
+  | 'companion';
 
 export interface CareSession {
   sessionId: string;

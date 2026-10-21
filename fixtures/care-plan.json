@@ -102,5 +102,85 @@
         390
       ]
     }
-  ]
+  ],
+  "medications": [
+    {
+      "medicationId": "med_lisin",
+      "name": "Lisinopril",
+      "schedule": "Morning, with breakfast",
+      "remindAt": "08:00",
+      "refillsRemaining": 1,
+      "daysSupplyRemaining": 6,
+      "pharmacy": "Riverside Pharmacy",
+      "note": "Taken daily."
+    },
+    {
+      "medicationId": "med_metf",
+      "name": "Metformin",
+      "schedule": "Morning and evening with food",
+      "remindAt": "08:00",
+      "refillsRemaining": 3,
+      "daysSupplyRemaining": 21,
+      "pharmacy": "Riverside Pharmacy",
+      "note": "Taken twice daily."
+    },
+    {
+      "medicationId": "med_vitd",
+      "name": "Vitamin D",
+      "schedule": "Morning",
+      "remindAt": "08:00",
+      "refillsRemaining": 5,
+      "daysSupplyRemaining": 40,
+      "pharmacy": "Riverside Pharmacy",
+      "note": "Supplement."
+    }
+  ],
+  "_medicationsNote": "Names and schedules only, so the companion can remind and request a refill. No doses, no conditions, no clinical history: CareFlow coordinates medication, it does not advise on it, and data it never holds is data it cannot leak or reason about.",
+  "appointments": [
+    {
+      "appointmentId": "apt_cardio",
+      "title": "Follow-up with Dr. Osei",
+      "withWhom": "Dr. Amina Osei",
+      "startsAt": "+2d 10:30",
+      "durationMinutes": 30,
+      "location": "Riverside Clinic, Room 4",
+      "kind": "clinic",
+      "transportNeeded": true
+    },
+    {
+      "appointmentId": "apt_physio",
+      "title": "Physiotherapy",
+      "withWhom": "Riverside Physio",
+      "startsAt": "+4d 14:00",
+      "durationMinutes": 45,
+      "location": "Riverside Clinic, Ground floor",
+      "kind": "clinic",
+      "transportNeeded": true
+    }
+  ],
+  "_appointmentsNote": "startsAt uses a relative '+Nd HH:MM' form so the demo works on any day.",
+  "supportResources": [
+    {
+      "name": "988 Suicide & Crisis Lifeline",
+      "contact": "Call or text 988",
+      "region": "US",
+      "hours": "24/7",
+      "note": "Free, confidential support for people in distress."
+    },
+    {
+      "name": "Emergency services",
+      "contact": "911",
+      "region": "US",
+      "hours": "24/7",
+      "note": "For a medical emergency, call directly. CareFlow cannot call on your behalf."
+    },
+    {
+      "name": "Riverside Home Care on-call nurse",
+      "contact": "+1-555-0177",
+      "region": "local",
+      "hours": "24/7",
+      "note": "The patient's own care team."
+    }
+  ],
+  "_supportNote": "Surfaced verbatim when someone is distressed. CareFlow hands over to people; it does not counsel, assess risk, or contact emergency services itself."
 }

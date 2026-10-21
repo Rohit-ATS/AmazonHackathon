@@ -27,6 +27,13 @@ import type { Config } from './lib/config.js';
 import { SessionError, SessionService } from './lib/sessions.js';
 import type { Store } from './lib/store.js';
 import { synthesize } from './lib/tts.js';
+import {
+  completeAccountLink,
+  linkPage,
+  linkResultPage,
+  ringCredentials,
+  startAccountLink,
+} from './lib/ringapp.js';
 
 export interface AppRequest {
   method: string;
@@ -44,6 +51,8 @@ export interface AppResponse {
 }
 
 export interface AppContext {
+  /** The MCP server. Present on the real runtime; optional so tests can omit it. */
+  mcp?: import('./mcp/server.js').McpServer;
   config: Config;
   store: Store;
   sessions: SessionService;
@@ -65,8 +74,44 @@ export async function handleRequest(ctx: AppContext, req: AppRequest): Promise<A
   const { method, path } = req;
 
   try {
-    // --- Ring -------------------------------------------------------------
+    // --- Alexa+ / MCP -----------------------------------------------------
+    // One endpoint handling POST, GET and DELETE, per the Streamable HTTP transport.
+    if (path === '/mcp' && ctx.mcp) {
+      const result = await ctx.mcp.handle({
+        method,
+        headers: req.headers,
+        rawBody: req.rawBody,
+      });
+      // A GET that opens an SSE stream is handled by the server layer, which owns the
+      // connection; here it would be a no-content response.
+      return { status: result.status, headers: result.headers, body: result.body };
+    }
+
+    // --- Ring Appstore app surface ---------------------------------------
+    // The four URLs registered in the Ring Developer Console. See lib/ringapp.ts.
     if (method === 'POST' && path === '/ring/webhook') return await ringWebhook(ctx, req);
+    if (method === 'GET' && path === '/ring/link') return await ringLink(ctx);
+    if (method === 'GET' && path === '/ring/oauth/callback') return await ringCallback(ctx, req);
+    if (method === 'POST' && path === '/ring/token-exchange') return await ringTokenExchange(ctx, req);
+    if (method === 'GET' && path === '/ring/redirect') {
+      // Default Redirect URL: where Ring sends the user when no platform-specific link
+      // applies. Nothing to do but hand them back to the app.
+      return { status: 302, headers: { location: ctx.config.webAppUrl }, body: '' };
+    }
+    if (method === 'GET' && path === '/ring/status') {
+      const tokens = await ctx.store.getRingTokens();
+      return json(200, {
+        credentialsConfigured: Boolean(ringCredentials(ctx.config)),
+        accountLinked: Boolean(tokens),
+        accessTokenExpiresAt: tokens ? new Date(tokens.expiresAt).toISOString() : null,
+        urls: {
+          accountLink: new URL('/ring/link', ctx.config.selfUrl).toString(),
+          tokenExchange: new URL('/ring/token-exchange', ctx.config.selfUrl).toString(),
+          webhook: new URL('/ring/webhook', ctx.config.selfUrl).toString(),
+          defaultRedirect: new URL('/ring/redirect', ctx.config.selfUrl).toString(),
+        },
+      });
+    }
 
     // --- care plan + safety ----------------------------------------------
     if (method === 'GET' && path === '/api/care-plan') return json(200, ctx.carePlan);
@@ -192,6 +237,78 @@ async function ringWebhook(ctx: AppContext, req: AppRequest): Promise<AppRespons
     startedConversation: true,
     elapsedMs: elapsed,
   });
+}
+
+// ---------------------------------------------------------------------------
+// Ring account linking
+// ---------------------------------------------------------------------------
+
+const HTML_HEADERS = { 'content-type': 'text/html; charset=utf-8' };
+
+/** Account Link URL. Ring opens this in the user's browser to start linking. */
+async function ringLink(ctx: AppContext): Promise<AppResponse> {
+  const started = await startAccountLink(ctx.config, ctx.store);
+  if ('error' in started) {
+    ctx.log('account link requested without Ring credentials');
+    return { status: 200, headers: HTML_HEADERS, body: linkPage({ error: started.error, appName: 'CareFlow' }) };
+  }
+  return {
+    status: 200,
+    headers: HTML_HEADERS,
+    body: linkPage({ authorizeUrl: started.authorizeUrl, appName: 'CareFlow' }),
+  };
+}
+
+/** The redirect target. Completes the exchange and shows the user the outcome. */
+async function ringCallback(ctx: AppContext, req: AppRequest): Promise<AppResponse> {
+  const result = await completeAccountLink(ctx.config, ctx.store, {
+    ...(req.query.code !== undefined ? { code: req.query.code } : {}),
+    ...(req.query.state !== undefined ? { state: req.query.state } : {}),
+    ...(req.query.error !== undefined ? { error: req.query.error } : {}),
+  });
+
+  ctx.log(result.ok ? 'Ring account linked' : 'Ring account link failed', {
+    ...(result.ok ? {} : { reason: result.reason }),
+  });
+
+  return {
+    status: result.ok ? 200 : 400,
+    headers: HTML_HEADERS,
+    body: linkResultPage(result, ctx.config.webAppUrl),
+  };
+}
+
+/**
+ * Token Exchange URL. Ring POSTs the authorization code here server-to-server.
+ *
+ * Accepts JSON or form encoding, because the documentation does not pin the content type
+ * and guessing wrong would fail the exchange with a confusing error.
+ */
+async function ringTokenExchange(ctx: AppContext, req: AppRequest): Promise<AppResponse> {
+  const contentType = req.headers['content-type'] ?? '';
+  let code: string | undefined;
+  let state: string | undefined;
+
+  if (contentType.includes('application/x-www-form-urlencoded')) {
+    const form = new URLSearchParams(req.rawBody.toString('utf8'));
+    code = form.get('code') ?? undefined;
+    state = form.get('state') ?? undefined;
+  } else {
+    const body = parseJsonBody<{ code?: string; state?: string }>(req);
+    code = body.code;
+    state = body.state;
+  }
+
+  const result = await completeAccountLink(ctx.config, ctx.store, {
+    ...(code !== undefined ? { code } : {}),
+    ...(state !== undefined ? { state } : {}),
+  });
+
+  if (!result.ok) {
+    ctx.log('token exchange failed', { reason: result.reason });
+    return error(400, 'token_exchange_failed', result.reason);
+  }
+  return json(200, { ok: true, linkedAt: result.linkedAt });
 }
 
 // ---------------------------------------------------------------------------
@@ -333,6 +450,9 @@ function health(ctx: AppContext) {
       signatureVerification: 'enforced',
       apiCredentialsConfigured: Boolean(ctx.config.ringClientId && ctx.config.ringClientSecret),
       webhookPath: '/ring/webhook',
+      accountLinkPath: '/ring/link',
+      tokenExchangePath: '/ring/token-exchange',
+      defaultRedirectPath: '/ring/redirect',
     },
     aws: {
       region: ctx.config.awsRegion,

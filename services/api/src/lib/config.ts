@@ -14,6 +14,11 @@ export interface Config {
   port: number;
   /** Public base URL of this API, used when building the simulator's delivery target. */
   selfUrl: string;
+  /**
+   * Where a linked user is sent afterwards. Ring opens the account-link page in a plain
+   * browser, so it has to be an absolute URL back to the CareFlow interface.
+   */
+  webAppUrl: string;
   storage: StorageMode;
   tableName: string;
   /** Where local mode keeps its JSON state. */
@@ -57,6 +62,7 @@ export function loadConfig(): Config {
   const config: Config = {
     port,
     selfUrl: env('CAREFLOW_SELF_URL') ?? `http://localhost:${port}`,
+    webAppUrl: env('CAREFLOW_WEB_URL') ?? 'http://localhost:5173',
     storage,
     tableName,
     localStatePath: env('CAREFLOW_LOCAL_STATE') ?? '.careflow-state.json',

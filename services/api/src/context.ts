@@ -10,9 +10,12 @@ import { Bus } from './lib/bus.js';
 import { loadConfig, resolveSecrets, type Config } from './lib/config.js';
 import { SessionService } from './lib/sessions.js';
 import { Store } from './lib/store.js';
+import { createMcpServer } from './mcp/index.js';
+import type { McpServer } from './mcp/server.js';
 
 export interface Runtime extends AppContext {
   bus: Bus;
+  mcp: McpServer;
 }
 
 /**
@@ -73,5 +76,24 @@ async function build(): Promise<Runtime> {
     visits: carePlan.visits.length,
   });
 
-  return { config, store, sessions, carePlan, log, bus };
+  const mcp = createMcpServer(
+    {
+      store,
+      getCarePlan: () => loadCarePlan(),
+      demoMode: config.demoMode,
+      log,
+    },
+    '0.1.0',
+    // An MCP host sends no Origin at all, which is allowed. A *browser* origin we do not
+    // recognise is a DNS-rebinding attempt and gets 403, which is what the spec is asking
+    // for. Extra origins can be added with CAREFLOW_MCP_ORIGINS.
+    [
+      config.webAppUrl,
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      ...(process.env.CAREFLOW_MCP_ORIGINS ?? '').split(',').map((o) => o.trim()).filter(Boolean),
+    ],
+  );
+
+  return { config, store, sessions, carePlan, log, bus, mcp };
 }

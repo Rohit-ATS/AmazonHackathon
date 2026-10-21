@@ -53,6 +53,9 @@ const carePlan: CarePlan = {
   ],
   visits: [],
   devices: [{ deviceId: 'front-door-001', displayName: 'Front door', kind: 'doorbell' }],
+  medications: [],
+  appointments: [],
+  supportResources: [],
 };
 
 const notifyDaughter: SensitiveAction = {
