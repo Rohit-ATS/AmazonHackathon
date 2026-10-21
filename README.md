@@ -1,20 +1,30 @@
 # CareFlow
 
-**Voice-first care access with Ring.** CareFlow turns Ring doorbell and motion events into a
-calm, consent-based conversation for someone receiving care at home — so answering the door
-stops being a race across the living room, and starts being a question they can answer.
+**A companion that is there at 3am, and knows when to get a human.**
+
+CareFlow is an always-on voice companion for people living at home who are isolated,
+recovering, or receiving care. It talks like someone who knows you, remembers what you said
+yesterday, helps you reach your daughter or your pharmacy — and never does any of it without
+asking first.
+
+It is **not a therapist**, and says so. When someone is struggling it stays with them,
+surfaces real human help, and hands over.
 
 Built for the [Amazon Developer Hackathon](https://amazonappdev2026.devpost.com/).
-**Ring track** · **AWS Builder** · **Open Source**.
+**Alexa+** (self-hosted MCP server) · **Ring** (doorbell events) · **AWS Builder** ·
+**Open Source**.
 
 ---
 
 ## The problem
 
-For a person recovering at home, the doorbell is not a notification problem. It is an
-accessibility problem (getting to the door in time), a safety problem (who is out there),
-and a coordination problem (the nurse is waiting, and nobody knows you need an extra two
-minutes).
+The hard hours are the ones with nobody in them. Someone home after a hospital stay has a
+nurse for forty minutes a day and sixteen waking hours without one — and the things that go
+wrong in between are ordinary: the medication runs out on a Sunday, the evenings get long,
+nobody knows you need an extra two minutes to reach the door.
+
+An assistant that is genuinely useful there has to do two things most of them do not: be
+good company, and know the exact moment to stop being the one handling it.
 
 A typical smart doorbell says **"Motion detected."**
 
@@ -38,6 +48,20 @@ accessible, consent-based care workflow — where nothing happens until the pers
    exact action.
 5. **A care handoff record** — what happened, what was asked for, what was approved, and what
    was done.
+
+## Two ways in, one brain
+
+| | What starts it | Where |
+|---|---|---|
+| **Alexa+ companion** | The person, whenever they want | MCP server, Streamable HTTP, spec 2025-11-25 — [docs/alexa-mcp.md](docs/alexa-mcp.md) |
+| **Ring** | A doorbell or motion event | Ring Appstore app, four hosted URLs — [docs/ring-app.md](docs/ring-app.md) |
+
+Same consent engine, same care plan, same refusals.
+
+```bash
+npm run mcp:demo    # drives the MCP server as a real client, start to finish
+npm run demo:story  # walks the Ring story, with assertions
+```
 
 ## Quick start
 

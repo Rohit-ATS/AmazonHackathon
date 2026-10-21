@@ -97,15 +97,19 @@ What CareFlow asks Ring for, and what it does with it:
   demo are fictional. No real patient data is in this repository, and `npm run seed` fails
   if a contact address does not look fictional.
 
-## A note on Alexa
+## Relationship to the Alexa+ companion
 
-Alexa+ is a **separate primary track** in this hackathon, not an add-on to the Ring entry.
-It wants a self-hosted MCP server (spec 2025-11-25+, Streamable HTTP) or an Agent Skill —
-a different integration from Ring's webhooks-and-OAuth model.
+An earlier version of this page argued that Alexa+ was a separate submission not worth
+pursuing. That was wrong, and it is worth saying so rather than quietly editing it: the
+consent architecture built for Ring turned out to be the hard part, and pointing it at an
+always-on companion was a smaller job than starting one from scratch.
 
-A project may enter **one primary track**, so CareFlow being a Ring app is a decision, not
-an oversight. The ideas are not interchangeable either: CareFlow's premise is that a
-doorbell event should become a consent-gated conversation, which is a Ring-shaped problem.
+CareFlow is now both, over one backend:
 
-If you want to pursue Alexa+ as well, it is a second submission with its own repository and
-demo, not something to bolt onto this one.
+- **Ring** (this document): a doorbell event starts a conversation about a specific moment
+  at the front door.
+- **Alexa+** ([docs/alexa-mcp.md](alexa-mcp.md)): a self-hosted MCP server, Streamable HTTP,
+  spec 2025-11-25. The person starts a conversation whenever they want one, at any hour.
+
+Same consent engine, same care plan, same refusals. Ring is what proved the architecture
+before it was pointed at anything harder.

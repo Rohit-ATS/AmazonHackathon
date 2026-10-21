@@ -7,6 +7,9 @@
  *   SESSION#<id>          META                    CareSession
  *   RINGLINK#<state>      META                    pending PKCE verifier (TTL)
  *   RINGACCT#default      META                    linked Ring tokens
+ *   MEMORY#<patientId>    <iso>#<memoryId>        what the companion remembers
+ *   CHECKIN#<patientId>   <iso>#<checkInId>       non-clinical check-ins
+ *   REMINDER#<patientId>  <iso>#<reminderId>      reminders
  *   PLAN#<patientId>      META                    CarePlan overrides
  *   EVENT#<requestId>     META                    idempotency marker (TTL)
  *   TIMELINE#<yyyy-mm-dd> <iso>#<entryId>         TimelineEntry
@@ -22,7 +25,14 @@
 
 import { readFile, writeFile, rename, unlink } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
-import type { AuditRecord, CareSession, TimelineEntry } from '@careflow/shared';
+import type {
+  AuditRecord,
+  CareSession,
+  CheckIn,
+  Memory,
+  Reminder,
+  TimelineEntry,
+} from '@careflow/shared';
 import type { RingTokens } from '@careflow/ring';
 import type { Config } from './config.js';
 
@@ -313,6 +323,54 @@ export class Store {
   async listAudit(sessionId: string): Promise<AuditRecord[]> {
     const rows = await this.backend.queryByPk(`AUDIT#${sessionId}`);
     return rows.map(stripKeys<AuditRecord>);
+  }
+
+  // -- Companion memory -----------------------------------------------------
+
+  /**
+   * Remember something about the person.
+   *
+   * This is what makes tomorrow's conversation not a cold start, and it is also the most
+   * sensitive thing CareFlow holds — so it is scoped per patient, readable by their care
+   * team, and never used for anything but talking to them.
+   */
+  async saveMemory(patientId: string, memory: Memory): Promise<void> {
+    await this.backend.put({
+      pk: `MEMORY#${patientId}`,
+      sk: `${memory.createdAt}#${memory.memoryId}`,
+      ...memory,
+    });
+  }
+
+  async listMemories(patientId: string, limit = 50): Promise<Memory[]> {
+    const rows = await this.backend.queryByPk(`MEMORY#${patientId}`, limit);
+    return rows.map(stripKeys<Memory>);
+  }
+
+  async saveCheckIn(patientId: string, checkIn: CheckIn): Promise<void> {
+    await this.backend.put({
+      pk: `CHECKIN#${patientId}`,
+      sk: `${checkIn.at}#${checkIn.checkInId}`,
+      ...checkIn,
+    });
+  }
+
+  async listCheckIns(patientId: string, limit = 20): Promise<CheckIn[]> {
+    const rows = await this.backend.queryByPk(`CHECKIN#${patientId}`, limit);
+    return rows.map(stripKeys<CheckIn>);
+  }
+
+  async saveReminder(patientId: string, reminder: Reminder): Promise<void> {
+    await this.backend.put({
+      pk: `REMINDER#${patientId}`,
+      sk: `${reminder.dueAt}#${reminder.reminderId}`,
+      ...reminder,
+    });
+  }
+
+  async listReminders(patientId: string, limit = 50): Promise<Reminder[]> {
+    const rows = await this.backend.queryByPk(`REMINDER#${patientId}`, limit);
+    return rows.map(stripKeys<Reminder>);
   }
 
   // -- Ring account linking -------------------------------------------------

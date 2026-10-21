@@ -54,7 +54,12 @@ export function assertAllowed(action: SensitiveAction, plan: CarePlan): void {
     );
   }
 
-  if (action.type === 'notify_caregiver' || action.type === 'notify_trusted_contact') {
+  if (
+    action.type === 'notify_caregiver' ||
+    action.type === 'notify_trusted_contact' ||
+    action.type === 'message_contact' ||
+    action.type === 'call_contact'
+  ) {
     const contact = findContact(plan, action.contactId);
     if (!contact) {
       throw new ActionRefused('unknown_contact', `No contact ${action.contactId} in the care plan.`);
@@ -101,17 +106,27 @@ export async function executeAction(
   }
 
   if (action.type === 'escalate_care_team') {
-    if (ctx.session.mode !== 'emergency_assist_prototype') {
+    // The invariant being protected is "CareFlow never decides on its own that someone
+    // needs help" — not "only one flow may escalate". Two flows satisfy it:
+    //
+    //   emergency_assist_prototype  the patient pressed the help button themselves
+    //   companion                   the person agreed, out loud, to a confirmation the
+    //                               MCP consent gate staged and will not execute without
+    //
+    // A Ring-triggered visitor session satisfies neither: nobody asked for help, so an
+    // escalation there would be CareFlow deciding, which is the thing to prevent.
+    if (ctx.session.mode === 'emergency_assist_prototype') {
+      if (ctx.session.event.source !== 'patient') {
+        // EMERGENCY_PROTOTYPE_POLICY.patientInitiatedOnly, enforced rather than described.
+        throw new ActionRefused(
+          'emergency_policy',
+          'The emergency-assist flow can only be started by the patient.',
+        );
+      }
+    } else if (ctx.session.mode !== 'companion') {
       throw new ActionRefused(
         'emergency_policy',
-        'escalate_care_team is only available in the emergency-assist prototype flow.',
-      );
-    }
-    if (ctx.session.event.source !== 'patient') {
-      // EMERGENCY_PROTOTYPE_POLICY.patientInitiatedOnly, enforced rather than described.
-      throw new ActionRefused(
-        'emergency_policy',
-        'The emergency-assist flow can only be started by the patient.',
+        'escalate_care_team requires a patient-initiated flow: the help button, or a confirmed companion escalation.',
       );
     }
   }
@@ -120,7 +135,8 @@ export async function executeAction(
 
   switch (action.type) {
     case 'notify_caregiver':
-    case 'notify_trusted_contact': {
+    case 'notify_trusted_contact':
+    case 'message_contact': {
       const contact = findContact(ctx.plan, action.contactId)!;
       return deliver(ctx, {
         to: `${contact.displayName} (${contact.relationship ?? contact.role})`,
@@ -129,6 +145,50 @@ export async function executeAction(
         body: action.message ?? action.summary,
         at,
       });
+    }
+
+    case 'call_contact': {
+      const contact = findContact(ctx.plan, action.contactId)!;
+      // CareFlow places the call through the care platform; it is not a phone dialler and
+      // in particular cannot reach emergency services. The agent is told to say so.
+      ctx.log('call requested', { to: contact.displayName });
+      return deliver(ctx, {
+        to: `${contact.displayName} (${contact.relationship ?? contact.role})`,
+        channel: contact.channel.kind,
+        address: contact.channel.address,
+        body: action.message
+          ? `Call request: ${action.message}`
+          : 'Call request from CareFlow.',
+        at,
+        verb: 'Calling',
+      });
+    }
+
+    case 'request_refill': {
+      // Demo mode records the request rather than transmitting it. Wiring a real pharmacy
+      // order into a hackathon build, where a mistake means someone's medication, is not a
+      // trade we are willing to make — the seam is here when there is a real integration.
+      ctx.log('refill requested', { demoMode: ctx.demoMode });
+      return {
+        ok: true,
+        via: ctx.demoMode ? 'demo:pharmacy' : 'recorded:pharmacy',
+        detail: `${action.message ?? action.summary} Sent as a refill request; the pharmacy confirms separately.`,
+        at,
+      };
+    }
+
+    case 'book_appointment': {
+      const coordinator = ctx.plan.contacts.find((c) => c.role === 'care_coordinator');
+      ctx.log('appointment requested');
+      return {
+        ok: true,
+        via: ctx.demoMode ? 'demo:care-team' : 'recorded:care-team',
+        // A request to humans, never a confirmed booking. The agent is told to say so.
+        detail: `${action.message ?? action.summary} Sent to ${
+          coordinator?.displayName ?? 'the care team'
+        } as a request — they will confirm the time.`,
+        at,
+      };
     }
 
     case 'escalate_care_team': {
@@ -180,6 +240,8 @@ interface Delivery {
   address: string;
   body: string;
   at: string;
+  /** Past-tense verb for the result line, e.g. "Notified" or "Calling". */
+  verb?: string;
 }
 
 async function deliver(ctx: ExecuteContext, d: Delivery): Promise<ActionResult> {
@@ -188,7 +250,7 @@ async function deliver(ctx: ExecuteContext, d: Delivery): Promise<ActionResult> 
     return {
       ok: true,
       via: d.channel === 'demo' ? 'demo' : `demo:${d.channel}`,
-      detail: `Notified ${d.to}: "${d.body}"`,
+      detail: `${d.verb ?? 'Notified'} ${d.to}: "${d.body}"`,
       at: d.at,
     };
   }
@@ -199,7 +261,7 @@ async function deliver(ctx: ExecuteContext, d: Delivery): Promise<ActionResult> 
   return {
     ok: true,
     via: `recorded:${d.channel}`,
-    detail: `Notified ${d.to}: "${d.body}"`,
+    detail: `${d.verb ?? 'Notified'} ${d.to}: "${d.body}"`,
     at: d.at,
   };
 }

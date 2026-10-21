@@ -51,6 +51,8 @@ export interface AppResponse {
 }
 
 export interface AppContext {
+  /** The MCP server. Present on the real runtime; optional so tests can omit it. */
+  mcp?: import('./mcp/server.js').McpServer;
   config: Config;
   store: Store;
   sessions: SessionService;
@@ -72,6 +74,19 @@ export async function handleRequest(ctx: AppContext, req: AppRequest): Promise<A
   const { method, path } = req;
 
   try {
+    // --- Alexa+ / MCP -----------------------------------------------------
+    // One endpoint handling POST, GET and DELETE, per the Streamable HTTP transport.
+    if (path === '/mcp' && ctx.mcp) {
+      const result = await ctx.mcp.handle({
+        method,
+        headers: req.headers,
+        rawBody: req.rawBody,
+      });
+      // A GET that opens an SSE stream is handled by the server layer, which owns the
+      // connection; here it would be a no-content response.
+      return { status: result.status, headers: result.headers, body: result.body };
+    }
+
     // --- Ring Appstore app surface ---------------------------------------
     // The four URLs registered in the Ring Developer Console. See lib/ringapp.ts.
     if (method === 'POST' && path === '/ring/webhook') return await ringWebhook(ctx, req);
