@@ -249,24 +249,32 @@ button {
 .dock-wrap {
   display: flex;
   justify-content: center;
-  padding: 0.85rem clamp(1rem, 3vw, 2.5rem) 0;
+  /*
+   * The top padding is headroom for the magnification. Items grow from their bottom edge,
+   * so at full scale one reaches about 24px above the bar; without the room it would ride
+   * up under the sticky header.
+   */
+  padding: 1.7rem clamp(1rem, 3vw, 2.5rem) 0;
 }
 
 .dock {
   display: flex;
   align-items: flex-end;
+  justify-content: center;
+  flex-wrap: wrap;
   gap: 0.35rem;
   padding: 0.4rem;
   border-radius: var(--r-lg);
   background: var(--mist);
   border: 1px solid var(--line);
   max-width: 100%;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.dock::-webkit-scrollbar {
-  display: none;
+  /*
+   * Emphatically not `overflow-x: auto`. Setting one axis to anything but `visible`
+   * forces the other to `auto` as well, so a horizontal scroller also clips vertically —
+   * which cropped the magnified item's icon and squared off its rounded corners against
+   * the bar. Four items wrap on a narrow screen instead of scrolling.
+   */
+  overflow: visible;
 }
 
 .dock-item {
@@ -285,7 +293,7 @@ button {
   color: var(--text-muted);
   font-weight: 600;
   font-size: 0.82rem;
-  transform: scale(calc(1 + var(--mag))) translateY(calc(var(--mag) * -5px));
+  transform: scale(calc(1 + var(--mag))) translateY(calc(var(--mag) * -4px));
   transform-origin: 50% 100%;
   transition: transform 220ms var(--ease), background-color 160ms var(--ease),
     color 160ms var(--ease);

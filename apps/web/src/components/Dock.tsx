@@ -35,9 +35,13 @@ interface Props {
   controls: string;
 }
 
-/** How far from the pointer an item still reacts, and how much it grows at the centre. */
+/**
+ * How far from the pointer an item still reacts, and how much it grows at the centre.
+ * The growth is bounded by the headroom `.dock-wrap` reserves above the bar — raise it and
+ * the magnified item rides up under the sticky header.
+ */
 const DISTANCE = 130;
-const MAGNIFY = 0.55;
+const MAGNIFY = 0.35;
 
 export function Dock({ items, activeId, onSelect, label, controls }: Props) {
   const barRef = useRef<HTMLDivElement>(null);
