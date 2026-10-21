@@ -1,22 +1,27 @@
 /**
- * The patient screen.
+ * The patient screen: one conversation, top to bottom.
  *
- * Laid out as one working surface, not a stack: status, approval and every control sit in
- * the left column, the conversation in the right. Nothing the patient might need is below
- * the fold — someone deciding whether to let a stranger in should never have to scroll to
- * find "no". The columns collapse to one at narrow widths and at large text sizes.
+ * Status at the top, the conversation filling the middle, and a composer pinned at the
+ * bottom from which the patient can speak or type. Everything the agent offers appears
+ * inside the thread, at the point in the conversation where it was offered, rather than in
+ * a separate panel the patient has to look away to find.
  *
- * The accessibility rules underneath are not negotiable:
+ * The rules underneath are not negotiable:
  *
- *  - One status line, large, readable across a room.
- *  - One question at a time, with the choices as buttons. Speech is an accelerator, never a
- *    requirement — recognition fails on accents, in noise, and on exactly these voices.
- *  - When consent is pending the panel turns dark teal and states plainly what is about to
+ *  - One status line, large, readable across a room. It stays pinned above the thread,
+ *    because "what is happening right now" must not scroll away mid-conversation.
+ *  - One question at a time, and the agent's choices are buttons in the thread. Speech is
+ *    an accelerator, never a requirement — recognition fails on accents, in noise, and on
+ *    exactly these voices. Typing is the third way in, for anyone who can do neither.
+ *  - When consent is pending the thread shows a dark block stating plainly what is about to
  *    happen, with Yes and No. A judge has to be able to *see* consent, not take our word.
- *  - The transcript is an aria-live region, so a screen reader announces the agent's turn.
+ *  - The thread is an aria-live log, so a screen reader announces the agent's turn.
+ *
+ * Free text goes to the same endpoint a spoken sentence does, so an instruction CareFlow
+ * must refuse — "just unlock the door" — is refused in the thread, in its own words.
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { AgentTurn, CarePlan, CareSession } from '@careflow/shared';
 import type { VoiceState } from '../lib/useVoice.js';
 
@@ -28,6 +33,7 @@ interface Props {
   busy: boolean;
   error: string | undefined;
   onChoose: (actionId: string) => void;
+  onSay: (text: string) => void;
   onConfirm: (affirmative: boolean) => void;
   onCancel: () => void;
   onRepeat: () => void;
@@ -42,130 +48,114 @@ export function PatientScreen({
   busy,
   error,
   onChoose,
+  onSay,
   onConfirm,
   onCancel,
   onRepeat,
   onAskForHelp,
 }: Props) {
-  const transcriptRef = useRef<HTMLDivElement>(null);
+  const logRef = useRef<HTMLDivElement>(null);
+  const [draft, setDraft] = useState('');
 
   // Keep the newest turn in view. Without this the most important line is the one just off
-  // the bottom of the box.
+  // the bottom of the thread.
   useEffect(() => {
-    const el = transcriptRef.current;
+    const el = logRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [session?.turns.length, voice.interim]);
+  }, [session?.turns.length, voice.interim, session?.state]);
 
   const state = session?.state;
   const awaitingConfirmation = state === 'awaiting_confirmation' && session?.pendingAction;
   const options = session?.options ?? lastTurn?.options ?? [];
+  const closed = state === 'done' || state === 'cancelled' || state === 'timed_out';
+  const canSend = Boolean(session) && !busy && !closed;
 
-  const heroTone = !session
-    ? 'is-idle'
-    : awaitingConfirmation
-      ? 'is-confirming'
-      : state === 'done' || state === 'cancelled'
-        ? 'is-done'
-        : '';
+  const tone = !session ? 'is-idle' : awaitingConfirmation ? 'is-confirming' : closed ? 'is-done' : '';
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault();
+    const text = draft.trim();
+    if (!text || !canSend) return;
+    setDraft('');
+    onSay(text);
+  }
 
   return (
-    <div className="patient-grid">
-      <div className="patient-col">
-        <section className={`hero ${heroTone}`} aria-labelledby="status-line" data-reveal="pop">
+    <section className="chat" aria-labelledby="status-line">
+      <header className={`chat-head ${tone}`}>
         <div className="hero-label">
-          {!session ? 'CareFlow' : session.match.status === 'scheduled' ? 'Scheduled visit' : 'At your door'}
+          {!session
+            ? 'CareFlow'
+            : session.match.status === 'scheduled'
+              ? 'Scheduled visit'
+              : 'At your door'}
         </div>
-
         <h1 id="status-line">{statusLine(session, voice)}</h1>
-        <p className="hero-sub">{statusSub(session, voice, plan)}</p>
+        <p className="chat-sub">{statusSub(session, voice, plan)}</p>
 
         {session?.mode === 'emergency_assist_prototype' && (
-          <p className="hero-sub" style={{ marginTop: '0.6rem' }}>
-            <span className="badge accent">Emergency assist · prototype</span>{' '}
-            CareFlow does not detect emergencies and cannot contact emergency services.
+          <p className="chat-sub" style={{ marginTop: '0.5rem' }}>
+            <span className="badge accent">Emergency assist · prototype</span> CareFlow does
+            not detect emergencies and cannot contact emergency services.
           </p>
         )}
-
-        <div className="hero-actions">
-          <button
-            className={`btn big ${voice.listening ? 'listening' : 'primary'}`}
-            onClick={voice.listening ? voice.stopListening : voice.startListening}
-            disabled={busy || !session || voice.speaking}
-            aria-pressed={voice.listening}
-          >
-            {/* A toggle, not a true press-and-hold: holding a button steady is exactly what
-                arthritic or tremoring hands cannot do, and a released key mid-sentence would
-                truncate the turn. The label says what the control actually does. */}
-            {voice.listening ? 'Listening… tap to stop' : 'Tap to speak'}
-          </button>
-          <button
-            className="btn big ghost"
-            onClick={onRepeat}
-            disabled={!session || voice.speaking}
-          >
-            Repeat that
-          </button>
-        </div>
-
-      </section>
+      </header>
 
       {error && (
-        <p className="notice" role="alert" data-reveal>
+        <p className="notice" role="alert">
           {error}
         </p>
       )}
       {voice.error && (
-        <p className="notice info" role="status" data-reveal>
+        <p className="notice info" role="status">
           {voice.error}
         </p>
       )}
 
-      {awaitingConfirmation && session?.pendingAction && (
-        <section className="consent" aria-labelledby="consent-heading" data-reveal="pop">
-          <div className="consent-label" id="consent-heading">
-            Your approval is needed
+      <div
+        className="chat-log"
+        ref={logRef}
+        role="log"
+        // polite, not assertive: the agent's turn should be announced without cutting a
+        // screen reader off mid-sentence.
+        aria-live="polite"
+        aria-atomic="false"
+      >
+        {!session && (
+          <div className="chat-empty">
+            <p style={{ marginTop: 0 }}>
+              Nothing is happening right now. When someone comes to the door, CareFlow will
+              explain what it sees and ask what you would like to do — here, in this
+              conversation.
+            </p>
+            <p className="small muted" style={{ marginBottom: 0 }}>
+              You can also start one yourself with <strong>I need help</strong> below, which
+              tells your care team you need them.
+            </p>
           </div>
-          <div className="consent-action">CareFlow will {session.pendingAction.summary}.</div>
-          {session.pendingAction.message && (
-            <div className="small muted">Message: “{session.pendingAction.message}”</div>
-          )}
-          <div className="hero-actions" style={{ marginTop: '0.4rem' }}>
-            <button className="btn yes big" onClick={() => onConfirm(true)} disabled={busy}>
-              Yes, do that
-            </button>
-            <button className="btn no big" onClick={() => onConfirm(false)} disabled={busy}>
-              No, don’t
-            </button>
-          </div>
-          <p className="small muted" style={{ margin: 0 }}>
-            Nothing has been sent yet. Nothing happens until you say yes.
-          </p>
-        </section>
-      )}
-
-        <section className="card plain" aria-labelledby="controls-heading" data-reveal>
-        <header>
-          <div>
-            <div className="eyebrow">Your choices</div>
-            <h2 id="controls-heading">What would you like to do?</h2>
-          </div>
-          {voice.voiceSource && (
-            <span className="badge" title="Where the spoken voice comes from">
-              Voice: {voice.voiceSource === 'polly' ? 'Amazon Polly' : 'browser'}
-            </span>
-          )}
-        </header>
-
-        {!voice.recognitionAvailable && (
-          <p className="small muted" style={{ marginTop: 0 }}>
-            This browser cannot listen, so use the buttons. Everything CareFlow can do is
-            available here.
-          </p>
         )}
 
-        {/* The buttons are the real interface, not a fallback for when speech fails. */}
-        {options.length > 0 && !awaitingConfirmation && (
-          <div className="hero-actions" style={{ marginTop: 0 }}>
+        {session?.turns.map((turn) => (
+          <div
+            key={turn.turnId}
+            className={`bubble ${turn.speaker === 'patient' ? 'patient' : 'agent'}`}
+          >
+            <span className="who">{turn.speaker === 'patient' ? 'You' : 'CareFlow'}</span>
+            {turn.text}
+          </div>
+        ))}
+
+        {voice.interim && (
+          <div className="bubble patient interim">
+            <span className="who">You</span>
+            {voice.interim}…
+          </div>
+        )}
+
+        {/* The offered choices live in the thread, under the turn that offered them. The
+            buttons are the real interface, not a fallback for when speech fails. */}
+        {options.length > 0 && !awaitingConfirmation && !closed && (
+          <div className="chat-actions">
             {options.map((option, i) => (
               <button
                 key={option.actionId}
@@ -179,76 +169,93 @@ export function PatientScreen({
           </div>
         )}
 
-        <hr style={{ border: 0, borderTop: '1px solid var(--line)', margin: '1.4rem 0' }} />
-
-        <div className="hero-actions" style={{ marginTop: 0 }}>
-          <button className="btn" onClick={onAskForHelp} disabled={busy}>
-            I need help
-          </button>
-          <button
-            className="btn ghost"
-            onClick={onCancel}
-            disabled={busy || !session || state === 'done' || state === 'cancelled'}
-          >
-            Cancel
-          </button>
-        </div>
-        <p className="small muted" style={{ marginBottom: 0 }}>
-          “I need help” tells your care team you need them. It does not contact emergency
-          services — for an emergency, call them directly.
-        </p>
-      </section>
+        {awaitingConfirmation && session?.pendingAction && (
+          <div className="consent" aria-labelledby="consent-heading">
+            <div className="consent-label" id="consent-heading">
+              Your approval is needed
+            </div>
+            <div className="consent-action">CareFlow will {session.pendingAction.summary}.</div>
+            {session.pendingAction.message && (
+              <div className="small muted">Message: “{session.pendingAction.message}”</div>
+            )}
+            <div className="chat-actions">
+              <button className="btn yes big" onClick={() => onConfirm(true)} disabled={busy}>
+                Yes, do that
+              </button>
+              <button className="btn no big" onClick={() => onConfirm(false)} disabled={busy}>
+                No, don’t
+              </button>
+            </div>
+            <p className="small muted" style={{ margin: 0 }}>
+              Nothing has been sent yet. Nothing happens until you say yes.
+            </p>
+          </div>
+        )}
       </div>
 
-      <div className="patient-col">
-        <section className="card" aria-labelledby="transcript-heading" data-reveal>
-        <header>
-          <div>
-            <div className="eyebrow">Live</div>
-            <h2 id="transcript-heading">Conversation</h2>
-          </div>
+      <div className="composer">
+        <form className="composer-row" onSubmit={submit}>
+          <label className="sr-only" htmlFor="say">
+            Type what you would like CareFlow to do
+          </label>
+          <input
+            id="say"
+            className="composer-input"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder={canSend ? 'Tell CareFlow what to do…' : 'Waiting for something to happen…'}
+            disabled={!canSend}
+            autoComplete="off"
+          />
+
+          <button
+            type="button"
+            className={`btn ${voice.listening ? 'listening' : 'primary'}`}
+            onClick={voice.listening ? voice.stopListening : voice.startListening}
+            disabled={!canSend || voice.speaking || !voice.recognitionAvailable}
+            aria-pressed={voice.listening}
+            title={
+              voice.recognitionAvailable
+                ? 'Speak instead of typing'
+                : 'This browser cannot listen — type, or use the buttons'
+            }
+          >
+            {voice.listening ? 'Listening… stop' : 'Speak'}
+          </button>
+
+          <button type="submit" className="btn" disabled={!canSend || draft.trim() === ''}>
+            Send
+          </button>
+        </form>
+
+        <div className="composer-tools">
+          <button className="btn sm ghost" onClick={onRepeat} disabled={!session || voice.speaking}>
+            Repeat that
+          </button>
+          <button className="btn sm ghost" onClick={onAskForHelp} disabled={busy}>
+            I need help
+          </button>
+          <button className="btn sm ghost" onClick={onCancel} disabled={busy || !session || closed}>
+            Cancel
+          </button>
+          {voice.voiceSource && (
+            <span className="badge" title="Where the spoken voice comes from">
+              Voice: {voice.voiceSource === 'polly' ? 'Amazon Polly' : 'browser'}
+            </span>
+          )}
           {lastTurn?.engine && (
             <span className="badge accent" title="Which engine produced the latest turn">
               {lastTurn.engine === 'bedrock' ? 'Amazon Bedrock' : 'Scripted fallback'}
             </span>
           )}
-        </header>
-
-        <div
-          className="transcript"
-          ref={transcriptRef}
-          // polite, not assertive: the agent's turn should be announced without cutting a
-          // screen reader off mid-sentence.
-          aria-live="polite"
-          aria-atomic="false"
-        >
-          {!session && (
-            <p className="muted" style={{ margin: 0 }}>
-              Nothing is happening right now. When someone comes to the door, CareFlow will
-              explain what it sees and ask what you would like to do.
-            </p>
-          )}
-
-          {session?.turns.map((turn) => (
-            <div
-              key={turn.turnId}
-              className={`bubble ${turn.speaker === 'patient' ? 'patient' : 'agent'}`}
-            >
-              <span className="who">{turn.speaker === 'patient' ? 'You' : 'CareFlow'}</span>
-              {turn.text}
-            </div>
-          ))}
-
-          {voice.interim && (
-            <div className="bubble patient interim">
-              <span className="who">You</span>
-              {voice.interim}…
-            </div>
-          )}
         </div>
-      </section>
+
+        <p className="small muted" style={{ margin: '0.1rem 0 0' }}>
+          “I need help” tells your care team you need them. It does not contact emergency
+          services — for an emergency, call them directly.
+        </p>
       </div>
-    </div>
+    </section>
   );
 }
 
