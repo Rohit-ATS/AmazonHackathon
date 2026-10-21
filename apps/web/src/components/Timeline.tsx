@@ -73,7 +73,10 @@ export function Timeline({ timeline, session }: Props) {
             <li key={entry.entryId} data-reveal="left" style={stagger(i, 50)}>
               <time dateTime={entry.at}>{formatTime(entry.at)}</time>
               <span className="rail" aria-hidden="true">
-                <span className={`dot ${entry.kind}`} />
+                {/* `k-` namespaced: entry.kind is server data, and dropping it bare into the
+                    class namespace let `.consent` — the patient screen's panel class — style
+                    this dot and cover the entry text. */}
+                <span className={`dot k-${entry.kind}`} />
               </span>
               <div>
                 <div className="text">
