@@ -227,26 +227,6 @@ export function PatientScreen({
 
         </div>
 
-        {/*
-          * While the microphone is open the orb takes over the conversation area — not the
-          * whole page, so the screen does not change shape underneath the patient. It is
-          * the clearest possible answer to "is it hearing me?" for someone who cannot read
-          * a small label, and it doubles as the recording indicator: on screen for exactly
-          * as long as the microphone is open, with the words heard so far underneath.
-          */}
-        {voice.listening && (
-          <div className="listening" role="dialog" aria-label="Listening">
-            <div className="listening-orb">
-              <SiriOrb size="176px" level={level} />
-            </div>
-            <p className="listening-text">
-              {voice.interim ? `“${voice.interim}…”` : 'Listening… just say what you need.'}
-            </p>
-            <button type="button" className="btn big" onClick={voice.stopListening}>
-              Stop listening
-            </button>
-          </div>
-        )}
       </div>
 
       {/* The bar shrinks away while the orb is up: two ways in at once is a choice nobody
@@ -321,6 +301,26 @@ export function PatientScreen({
           services — for an emergency, call them directly.
         </p>
       </div>
+
+      {/*
+        * The orb arrives where the chat bar was, as the bar folds away beneath it: the
+        * microphone replaces the way in rather than covering the conversation, so the
+        * thread stays readable and nothing above this point moves.
+        */}
+      {voice.listening && (
+        <div className="listening" role="status" aria-label="Listening">
+          <div className="listening-orb">
+            <SiriOrb size="88px" level={level} />
+          </div>
+          <p className="listening-text">
+            {voice.interim ? `“${voice.interim}…”` : 'Listening… just say what you need.'}
+          </p>
+          <button type="button" className="btn" onClick={voice.stopListening}>
+            Stop listening
+          </button>
+        </div>
+      )}
+
     </section>
   );
 }
