@@ -9,6 +9,8 @@
 
 import type { SafetyPanel as SafetyPanelData } from '@careflow/shared';
 import type { Health } from '../lib/api.js';
+import { stagger } from '../lib/useReveal.js';
+import { Blob, Wave } from './Decor.js';
 
 interface Props {
   safety: SafetyPanelData | undefined;
@@ -16,14 +18,23 @@ interface Props {
 }
 
 export function SafetyPanel({ safety, health }: Props) {
-  if (!safety) return <section className="card"><p className="muted">Loading…</p></section>;
+  if (!safety)
+    return (
+      <section className="card">
+        <p className="muted">Loading…</p>
+      </section>
+    );
 
   return (
     <>
-      <section className="card" aria-labelledby="safety-heading">
+      <section className="card" aria-labelledby="safety-heading" data-reveal="pop">
+        <Blob corner="tr" size="30%" />
         <header>
-          <h2 id="safety-heading">Safety and privacy</h2>
-          <span className="badge">Live configuration</span>
+          <div>
+            <div className="eyebrow">Read from the running service</div>
+            <h2 id="safety-heading">Safety and privacy</h2>
+          </div>
+          <span className="badge ok">Live configuration</span>
         </header>
 
         <dl className="kv">
@@ -78,8 +89,12 @@ export function SafetyPanel({ safety, health }: Props) {
         </p>
       </section>
 
-      <section className="card" aria-labelledby="refusals-heading">
-        <header>
+      <section className="panel-dark" aria-labelledby="refusals-heading" data-reveal>
+        <Wave />
+        <header style={{ marginBottom: '0.8rem' }}>
+          <div className="eyebrow" style={{ color: 'var(--lime)' }}>
+            Declared limits
+          </div>
           <h2 id="refusals-heading">What CareFlow refuses to do</h2>
         </header>
         <p className="small muted" style={{ marginTop: 0 }}>
@@ -87,8 +102,8 @@ export function SafetyPanel({ safety, health }: Props) {
           rejected from every state, after any confirmation, by two independent checks.
         </p>
         <div className="rows">
-          {safety.blockedCapabilities.map((capability) => (
-            <div className="row" key={capability}>
+          {safety.blockedCapabilities.map((capability, i) => (
+            <div className="row" key={capability} data-reveal style={stagger(i)}>
               <span className="grow mono">{capability}</span>
               <span className="badge danger">always refused</span>
             </div>
@@ -96,9 +111,12 @@ export function SafetyPanel({ safety, health }: Props) {
         </div>
       </section>
 
-      <section className="card" aria-labelledby="emergency-heading">
+      <section className="card plain" aria-labelledby="emergency-heading" data-reveal>
         <header>
-          <h2 id="emergency-heading">Emergency assist</h2>
+          <div>
+            <div className="eyebrow">Shown separately in the demo</div>
+            <h2 id="emergency-heading">Emergency assist</h2>
+          </div>
           <span className="badge warn">{safety.emergencyAssist.status}</span>
         </header>
         <dl className="kv">
@@ -128,22 +146,23 @@ export function SafetyPanel({ safety, health }: Props) {
         </p>
       </section>
 
-      <section className="card" aria-labelledby="disclosure-heading">
-        <header>
-          <h2 id="disclosure-heading">AI disclosure</h2>
-        </header>
-        <p style={{ marginTop: 0, fontSize: '1.05rem' }}>“{safety.aiDisclosure}”</p>
-        <p className="small muted" style={{ marginBottom: 0 }}>
-          Said at the start of every session. The backend adds it even if the language model
-          leaves it out.
+      <section className="hero" aria-labelledby="disclosure-heading" data-reveal="pop">
+        <div className="hero-label">Said at the start of every session</div>
+        <h2 id="disclosure-heading" style={{ fontSize: 'clamp(1.4rem, 1rem + 1.8vw, 2.2rem)' }}>
+          “{safety.aiDisclosure}”
+        </h2>
+        <p className="hero-sub" style={{ marginBottom: 0 }}>
+          The backend adds it even if the language model leaves it out.
         </p>
       </section>
 
       {health && (
-        <section className="card" aria-labelledby="runtime-heading">
+        <section className="card plain" aria-labelledby="runtime-heading" data-reveal>
           <header>
-            <h2 id="runtime-heading">Running configuration</h2>
-            <span className="small muted">from /healthz</span>
+            <div>
+              <div className="eyebrow">from /healthz</div>
+              <h2 id="runtime-heading">Running configuration</h2>
+            </div>
           </header>
           <dl className="kv">
             <dt>Storage</dt>

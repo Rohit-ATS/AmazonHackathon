@@ -16,6 +16,7 @@ import { CaregiverDashboard } from './components/CaregiverDashboard.js';
 import { Timeline } from './components/Timeline.js';
 import { SafetyPanel } from './components/SafetyPanel.js';
 import { DemoStrip } from './components/DemoStrip.js';
+import { useReveal, useStuckHeader } from './lib/useReveal.js';
 
 type Tab = 'patient' | 'caregiver' | 'timeline' | 'safety';
 
@@ -78,6 +79,10 @@ export function App() {
   // only helps once they have found it does not help the people who need it.
   const largeText = largeTextChoice ?? plan?.patient.preferences.largeTextDefault ?? false;
   const muted = mutedChoice ?? false;
+
+  // Scroll reveals and the sticky-header state. Both no-op under prefers-reduced-motion.
+  useReveal();
+  useStuckHeader();
 
   const live = useLive();
   const { session, timeline, lastTurn, connection, applySession, selectSession, refresh } = live;
@@ -200,8 +205,11 @@ export function App() {
 
       <header className="app-header">
         <div className="brand">
-          <strong>CareFlow</strong>
-          <span>Voice-first care access with Ring</span>
+          <span className="brand-dot" aria-hidden="true">
+            CF
+          </span>
+          CareFlow
+          <small>Voice-first care access with Ring</small>
         </div>
 
         <div className="header-controls">
@@ -219,8 +227,7 @@ export function App() {
           </span>
 
           <button
-            className="btn"
-            style={{ minHeight: 48 }}
+            className="btn sm ghost"
             onClick={() => chooseLargeText(!largeText)}
             aria-pressed={largeText}
           >
@@ -228,8 +235,7 @@ export function App() {
           </button>
 
           <button
-            className="btn"
-            style={{ minHeight: 48 }}
+            className="btn sm primary"
             onClick={() => chooseMuted(!muted)}
             aria-pressed={muted}
           >

@@ -9,6 +9,8 @@
 import { useEffect, useState } from 'react';
 import type { AuditRecord, CareSession, TimelineEntry } from '@careflow/shared';
 import { api } from '../lib/api.js';
+import { stagger } from '../lib/useReveal.js';
+import { Blob, Wave } from './Decor.js';
 
 interface Props {
   timeline: TimelineEntry[];
@@ -52,10 +54,14 @@ export function Timeline({ timeline, session }: Props) {
 
   return (
     <>
-      <section className="card" aria-labelledby="timeline-heading">
+      <section className="card" aria-labelledby="timeline-heading" data-reveal>
+        <Blob corner="tr" size="26%" />
         <header>
-          <h2 id="timeline-heading">Event timeline</h2>
-          <span className="small muted">{ordered.length} entries today</span>
+          <div>
+            <div className="eyebrow">Everything, in order</div>
+            <h2 id="timeline-heading">Event timeline</h2>
+          </div>
+          <span className="badge">{ordered.length} entries today</span>
         </header>
 
         {ordered.length === 0 && (
@@ -63,8 +69,8 @@ export function Timeline({ timeline, session }: Props) {
         )}
 
         <ul className="timeline">
-          {ordered.map((entry) => (
-            <li key={entry.entryId}>
+          {ordered.map((entry, i) => (
+            <li key={entry.entryId} data-reveal="left" style={stagger(i, 50)}>
               <time dateTime={entry.at}>{formatTime(entry.at)}</time>
               <span className="rail" aria-hidden="true">
                 <span className={`dot ${entry.kind}`} />
@@ -83,18 +89,33 @@ export function Timeline({ timeline, session }: Props) {
         </ul>
       </section>
 
-      <section className="card" aria-labelledby="audit-heading">
-        <header>
-          <h2 id="audit-heading">Consent audit trail</h2>
-          {session && <span className="small muted mono">{session.sessionId.slice(0, 8)}</span>}
+      <section className="panel-dark" aria-labelledby="audit-heading" data-reveal="pop">
+        <Wave />
+        <header
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'baseline',
+            flexWrap: 'wrap',
+            gap: '0.6rem',
+            marginBottom: '1.2rem',
+          }}
+        >
+          <div>
+            <div className="eyebrow" style={{ color: 'var(--lime)' }}>
+              Provable, not promised
+            </div>
+            <h2 id="audit-heading">Consent audit trail</h2>
+          </div>
+          {session && <span className="badge mono">{session.sessionId.slice(0, 8)}</span>}
         </header>
 
         {!session && <p className="muted">Select an event to see its audit trail.</p>}
         {session && audit.length === 0 && <p className="muted">No audit records yet.</p>}
 
         <div className="rows">
-          {audit.map((record) => (
-            <div className="row" key={record.auditId}>
+          {audit.map((record, i) => (
+            <div className="row" key={record.auditId} data-reveal style={stagger(i, 50)}>
               <time className="small muted" style={{ fontVariantNumeric: 'tabular-nums' }}>
                 {formatTime(record.at)}
               </time>

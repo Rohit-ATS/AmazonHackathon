@@ -1,21 +1,23 @@
 /**
  * The patient screen.
  *
- * Design rules, all of them for the same reason — the person using this may be older, hard
- * of hearing, unsteady on their feet, and standing up while it talks:
+ * Styled as the hero block from the reference design: a big lime panel with the status in
+ * heavy display type, a hand-drawn arrow, and pill buttons. The visual language is borrowed
+ * wholesale; the accessibility rules underneath it are not negotiable:
  *
- *  - One status line, large, readable from across a room.
- *  - One question at a time, with the choices as buttons. Speech is an accelerator, never
- *    a requirement: recognition fails on accents, in noise, and on exactly these voices.
- *  - When consent is pending, the screen states plainly what is about to happen and shows
- *    Yes and No. A judge has to be able to *see* consent, not take our word for it.
- *  - The transcript is an aria-live region, so a screen reader announces the agent's turn
- *    without the user hunting for it.
+ *  - One status line, large, readable across a room.
+ *  - One question at a time, with the choices as buttons. Speech is an accelerator, never a
+ *    requirement — recognition fails on accents, in noise, and on exactly these voices.
+ *  - When consent is pending the panel flips to black and states plainly what is about to
+ *    happen, with Yes and No. A judge has to be able to *see* consent, not take our word.
+ *  - The transcript is an aria-live region, so a screen reader announces the agent's turn.
  */
 
 import { useEffect, useRef } from 'react';
 import type { AgentTurn, CarePlan, CareSession } from '@careflow/shared';
 import type { VoiceState } from '../lib/useVoice.js';
+import { stagger } from '../lib/useReveal.js';
+import { Blob, Scribble } from './Decor.js';
 
 interface Props {
   session: CareSession | undefined;
@@ -46,7 +48,7 @@ export function PatientScreen({
 }: Props) {
   const transcriptRef = useRef<HTMLDivElement>(null);
 
-  // Keep the newest turn in view. Without this the most important line is the one off
+  // Keep the newest turn in view. Without this the most important line is the one just off
   // the bottom of the box.
   useEffect(() => {
     const el = transcriptRef.current;
@@ -55,62 +57,75 @@ export function PatientScreen({
 
   const state = session?.state;
   const awaitingConfirmation = state === 'awaiting_confirmation' && session?.pendingAction;
-  // Prefer the session's stored options so a page reload keeps the buttons; the live turn
-  // is only a faster path to the same list.
   const options = session?.options ?? lastTurn?.options ?? [];
+
+  const heroTone = !session
+    ? 'is-idle'
+    : awaitingConfirmation
+      ? 'is-confirming'
+      : state === 'done' || state === 'cancelled'
+        ? 'is-done'
+        : '';
 
   return (
     <>
-      <section
-        className={`status ${
-          !session
-            ? 'is-idle'
-            : awaitingConfirmation
-              ? 'is-confirming'
-              : state === 'done' || state === 'cancelled'
-                ? 'is-done'
-                : ''
-        }`}
-        aria-labelledby="status-line"
-      >
-        <div className="status-line" id="status-line">
-          {statusLine(session, voice)}
+      <section className={`hero ${heroTone}`} aria-labelledby="status-line" data-reveal="pop">
+        <div className="hero-label">
+          {!session ? 'CareFlow' : session.match.status === 'scheduled' ? 'Scheduled visit' : 'At your door'}
         </div>
-        <div className="status-sub">{statusSub(session, voice, plan)}</div>
+
+        <h1 id="status-line">{statusLine(session, voice)}</h1>
+        <p className="hero-sub">{statusSub(session, voice, plan)}</p>
 
         {session?.mode === 'emergency_assist_prototype' && (
-          <div>
-            <span className="badge warn">Emergency assist · prototype</span>{' '}
-            <span className="small muted">
-              CareFlow does not detect emergencies and cannot contact emergency services.
-            </span>
-          </div>
+          <p className="hero-sub" style={{ marginTop: '0.6rem' }}>
+            <span className="badge accent">Emergency assist · prototype</span>{' '}
+            CareFlow does not detect emergencies and cannot contact emergency services.
+          </p>
         )}
+
+        <div className="hero-actions">
+          <button
+            className={`btn big ${voice.listening ? 'listening' : 'primary'}`}
+            onClick={voice.listening ? voice.stopListening : voice.startListening}
+            disabled={busy || !session || voice.speaking}
+            aria-pressed={voice.listening}
+          >
+            {voice.listening ? 'Listening… tap to stop' : 'Hold to speak'}
+          </button>
+          <button
+            className="btn big ghost"
+            onClick={onRepeat}
+            disabled={!session || voice.speaking}
+          >
+            Repeat that
+          </button>
+        </div>
+
+        <Scribble />
       </section>
 
       {error && (
-        <p className="notice" role="alert">
+        <p className="notice" role="alert" data-reveal>
           {error}
         </p>
       )}
       {voice.error && (
-        <p className="notice info" role="status">
+        <p className="notice info" role="status" data-reveal>
           {voice.error}
         </p>
       )}
 
       {awaitingConfirmation && session?.pendingAction && (
-        <section className="consent" aria-labelledby="consent-heading">
+        <section className="consent" aria-labelledby="consent-heading" data-reveal="pop">
           <div className="consent-label" id="consent-heading">
             Your approval is needed
           </div>
-          <div className="consent-action">
-            CareFlow will {session.pendingAction.summary}.
-          </div>
+          <div className="consent-action">CareFlow will {session.pendingAction.summary}.</div>
           {session.pendingAction.message && (
             <div className="small muted">Message: “{session.pendingAction.message}”</div>
           )}
-          <div className="actions">
+          <div className="hero-actions" style={{ marginTop: '0.4rem' }}>
             <button className="btn yes big" onClick={() => onConfirm(true)} disabled={busy}>
               Yes, do that
             </button>
@@ -124,9 +139,13 @@ export function PatientScreen({
         </section>
       )}
 
-      <section className="card" aria-labelledby="transcript-heading">
+      <section className="card" aria-labelledby="transcript-heading" data-reveal>
+        <Blob corner="tr" size="30%" />
         <header>
-          <h2 id="transcript-heading">Conversation</h2>
+          <div>
+            <div className="eyebrow">Live</div>
+            <h2 id="transcript-heading">Conversation</h2>
+          </div>
           {lastTurn?.engine && (
             <span className="badge accent" title="Which engine produced the latest turn">
               {lastTurn.engine === 'bedrock' ? 'Amazon Bedrock' : 'Scripted fallback'}
@@ -137,20 +156,23 @@ export function PatientScreen({
         <div
           className="transcript"
           ref={transcriptRef}
-          // polite rather than assertive: the agent's turn should be announced, but not
-          // interrupt a screen reader mid-sentence.
+          // polite, not assertive: the agent's turn should be announced without cutting a
+          // screen reader off mid-sentence.
           aria-live="polite"
           aria-atomic="false"
         >
           {!session && (
-            <p className="muted">
+            <p className="muted" style={{ margin: 0 }}>
               Nothing is happening right now. When someone comes to the door, CareFlow will
               explain what it sees and ask what you would like to do.
             </p>
           )}
 
           {session?.turns.map((turn) => (
-            <div key={turn.turnId} className={`bubble ${turn.speaker === 'patient' ? 'patient' : 'agent'}`}>
+            <div
+              key={turn.turnId}
+              className={`bubble ${turn.speaker === 'patient' ? 'patient' : 'agent'}`}
+            >
               <span className="who">{turn.speaker === 'patient' ? 'You' : 'CareFlow'}</span>
               {turn.text}
             </div>
@@ -165,9 +187,12 @@ export function PatientScreen({
         </div>
       </section>
 
-      <section className="card" aria-labelledby="controls-heading">
+      <section className="card plain" aria-labelledby="controls-heading" data-reveal>
         <header>
-          <h2 id="controls-heading">What would you like to do?</h2>
+          <div>
+            <div className="eyebrow">Your choices</div>
+            <h2 id="controls-heading">What would you like to do?</h2>
+          </div>
           {voice.voiceSource && (
             <span className="badge" title="Where the spoken voice comes from">
               Voice: {voice.voiceSource === 'polly' ? 'Amazon Polly' : 'browser'}
@@ -175,23 +200,8 @@ export function PatientScreen({
           )}
         </header>
 
-        <div className="actions" style={{ marginBottom: 'var(--gap)' }}>
-          <button
-            className={`btn primary big ${voice.listening ? 'listening' : ''}`}
-            onClick={voice.listening ? voice.stopListening : voice.startListening}
-            disabled={busy || !session || voice.speaking}
-            aria-pressed={voice.listening}
-          >
-            {voice.listening ? 'Listening… tap to stop' : 'Hold to speak'}
-          </button>
-
-          <button className="btn big" onClick={onRepeat} disabled={!session || voice.speaking}>
-            Repeat that
-          </button>
-        </div>
-
         {!voice.recognitionAvailable && (
-          <p className="small muted">
+          <p className="small muted" style={{ marginTop: 0 }}>
             This browser cannot listen, so use the buttons. Everything CareFlow can do is
             available here.
           </p>
@@ -199,13 +209,15 @@ export function PatientScreen({
 
         {/* The buttons are the real interface, not a fallback for when speech fails. */}
         {options.length > 0 && !awaitingConfirmation && (
-          <div className="actions">
-            {options.map((option) => (
+          <div className="hero-actions" style={{ marginTop: 0 }}>
+            {options.map((option, i) => (
               <button
                 key={option.actionId}
-                className="btn"
+                className={`btn ${i === 0 ? 'lime' : ''}`}
                 onClick={() => onChoose(option.actionId)}
                 disabled={busy}
+                data-reveal
+                style={stagger(i)}
               >
                 {option.label}
               </button>
@@ -213,14 +225,14 @@ export function PatientScreen({
           </div>
         )}
 
-        <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: 'var(--gap) 0' }} />
+        <hr style={{ border: 0, borderTop: '1px solid var(--line)', margin: '1.4rem 0' }} />
 
-        <div className="actions">
+        <div className="hero-actions" style={{ marginTop: 0 }}>
           <button className="btn" onClick={onAskForHelp} disabled={busy}>
             I need help
           </button>
           <button
-            className="btn"
+            className="btn ghost"
             onClick={onCancel}
             disabled={busy || !session || state === 'done' || state === 'cancelled'}
           >
@@ -238,10 +250,10 @@ export function PatientScreen({
 
 function statusLine(session: CareSession | undefined, voice: VoiceState): string {
   if (voice.listening) return 'Listening…';
-  if (!session) return 'All quiet';
+  if (!session) return 'All quiet at home';
 
   if (session.state === 'awaiting_confirmation') return 'Waiting for your approval';
-  if (session.state === 'done') return 'Done';
+  if (session.state === 'done') return 'All done';
   if (session.state === 'cancelled') return 'Nothing was sent';
   if (session.state === 'timed_out') return 'That request timed out';
 
@@ -263,11 +275,11 @@ function statusSub(
   if (!session) {
     const next = plan?.visits.find((v) => new Date(v.startsAt).getTime() > Date.now());
     return next
-      ? `Next visit: ${new Date(next.startsAt).toLocaleTimeString('en-US', {
+      ? `Your next visit is at ${new Date(next.startsAt).toLocaleTimeString('en-US', {
           hour: 'numeric',
           minute: '2-digit',
-        })}`
-      : 'No more visits scheduled today.';
+        })}. CareFlow will tell you when someone arrives.`
+      : 'No more visits scheduled today. CareFlow will tell you when someone arrives.';
   }
 
   if (session.state === 'done' && session.results[0]) return session.results[0].detail;

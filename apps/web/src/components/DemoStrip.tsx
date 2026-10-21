@@ -14,6 +14,8 @@
 
 import { useState } from 'react';
 import { api, type DemoEventResponse } from '../lib/api.js';
+import { stagger } from '../lib/useReveal.js';
+import { Wave } from './Decor.js';
 
 interface Props {
   busy: boolean;
@@ -61,20 +63,37 @@ export function DemoStrip({ busy, onFired }: Props) {
   }
 
   return (
-    <section className="card demo-strip" aria-labelledby="demo-heading">
-      <header>
-        <h2 id="demo-heading">Demo controls · stands in for a Ring device</h2>
-        <span className="badge">Ring simulator</span>
+    <section className="demo-strip" aria-labelledby="demo-heading" data-reveal="pop">
+      <Wave />
+      <header
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'baseline',
+          flexWrap: 'wrap',
+          gap: '0.6rem',
+          marginBottom: '1.1rem',
+        }}
+      >
+        <div>
+          <div className="eyebrow" style={{ color: 'var(--lime)' }}>
+            Stands in for a Ring device
+          </div>
+          <h2 id="demo-heading">Demo controls</h2>
+        </div>
+        <span className="badge ok">Ring simulator</span>
       </header>
 
-      <div className="actions">
-        {SCENARIOS.map((scenario) => (
+      <div className="hero-actions" style={{ marginTop: 0 }}>
+        {SCENARIOS.map((scenario, i) => (
           <button
             key={scenario.id}
             className="btn"
             onClick={() => void fire(scenario.id)}
             disabled={busy || pending !== undefined}
             title={scenario.hint}
+            data-reveal
+            style={stagger(i)}
           >
             {pending === scenario.id ? 'Sending…' : scenario.label}
           </button>
@@ -96,7 +115,7 @@ export function DemoStrip({ busy, onFired }: Props) {
       {last && (
         <>
           <div className="rows">
-            <div className="row">
+            <div className="row" data-reveal>
               <span className="grow">
                 <strong>{last.scenario}</strong>{' '}
                 <span className="muted small">{last.eventId}</span>
