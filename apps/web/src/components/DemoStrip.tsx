@@ -14,8 +14,6 @@
 
 import { useState } from 'react';
 import { api, type DemoEventResponse } from '../lib/api.js';
-import { stagger } from '../lib/useReveal.js';
-import { Wave } from './Decor.js';
 
 interface Props {
   busy: boolean;
@@ -64,7 +62,6 @@ export function DemoStrip({ busy, onFired }: Props) {
 
   return (
     <section className="demo-strip" aria-labelledby="demo-heading" data-reveal="pop">
-      <Wave />
       <header
         style={{
           display: 'flex',
@@ -85,7 +82,7 @@ export function DemoStrip({ busy, onFired }: Props) {
       </header>
 
       <div className="hero-actions" style={{ marginTop: 0 }}>
-        {SCENARIOS.map((scenario, i) => (
+        {SCENARIOS.map((scenario) => (
           <button
             key={scenario.id}
             className="btn"
@@ -93,7 +90,6 @@ export function DemoStrip({ busy, onFired }: Props) {
             disabled={busy || pending !== undefined}
             title={scenario.hint}
             data-reveal
-            style={stagger(i)}
           >
             {pending === scenario.id ? 'Sending…' : scenario.label}
           </button>
