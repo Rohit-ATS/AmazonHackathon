@@ -25,7 +25,7 @@ plus whether credentials are configured and whether an account is currently link
 
 | URL | Who calls it | What it does |
 |---|---|---|
-| **Account Link** `/ring/link` | The user's browser, opened by the Ring app | A server-rendered page explaining what CareFlow will and will not be able to do, then a button through to Ring's authorize page. Starts PKCE and stores the verifier against an unguessable `state`. |
+| **Account Link** `/ring/link` | The user's browser, opened by the Ring app | A server-rendered page asks for the CareFlow access token. Only the authenticated POST starts PKCE and stores the verifier against an unguessable `state`, then redirects to Ring. |
 | **Token Exchange** `/ring/token-exchange` | Ring's servers | Receives the authorization code, swaps it for tokens, persists them. Accepts JSON or form encoding, since the docs do not pin the content type. |
 | **Webhook** `/ring/webhook` | Ring's servers | Signed device events. HMAC-SHA256 verified over the raw bytes before parsing, deduped on `meta.request_id`, 200 inside five seconds. |
 | **Default Redirect** `/ring/redirect` | The user's browser | Where Ring sends someone after linking when no platform-specific link applies. Hands them back to the CareFlow interface. |

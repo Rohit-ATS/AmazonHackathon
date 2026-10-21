@@ -13,6 +13,7 @@ import type { CareSession, TimelineEntry } from '@careflow/shared';
 
 const base = process.env.CAREFLOW_API ?? 'http://localhost:8787';
 const hmacKey = process.env.RING_HMAC_KEY ?? 'careflow-local-dev-hmac-key-do-not-use-in-production';
+const apiToken = process.env.CAREFLOW_API_TOKEN;
 
 let failures = 0;
 
@@ -38,7 +39,10 @@ function check(ok: boolean, label: string) {
 async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(new URL(path, base), {
     method,
-    headers: body ? { 'content-type': 'application/json' } : {},
+    headers: {
+      ...(body ? { 'content-type': 'application/json' } : {}),
+      ...(apiToken ? { authorization: `Bearer ${apiToken}` } : {}),
+    },
     body: body ? JSON.stringify(body) : undefined,
   });
   const text = await res.text();

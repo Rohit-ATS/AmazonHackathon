@@ -92,7 +92,9 @@ export async function handleRequest(ctx: AppContext, req: AppRequest): Promise<A
     // The four URLs registered in the Ring Developer Console. See lib/ringapp.ts.
     if (method === 'POST' && path === '/ring/webhook') return await ringWebhook(ctx, req);
     if (method === 'GET' && path === '/ring/oauth/callback') return await ringCallback(ctx, req);
-    if (method === 'GET' && path === '/ring/link') return await ringLink(ctx);
+    if ((method === 'GET' || method === 'POST') && path === '/ring/link') {
+      return await ringLink(ctx, req);
+    }
     if (method === 'POST' && path === '/ring/token-exchange') return await ringTokenExchange(ctx, req);
     if (method === 'GET' && path === '/ring/redirect') {
       return { status: 302, headers: { location: ctx.config.webAppUrl }, body: '' };
@@ -204,7 +206,13 @@ function authorized(header: string | undefined, expected: string | undefined): b
   // without credentials, so an omitted token can never fail open in deployment.
   if (!expected) return true;
   if (!header?.startsWith('Bearer ')) return false;
-  const supplied = Buffer.from(header.slice(7));
+  return tokenAuthorized(header.slice(7), expected);
+}
+
+function tokenAuthorized(token: string | undefined, expected: string | undefined): boolean {
+  if (!expected) return true;
+  if (!token) return false;
+  const supplied = Buffer.from(token);
   const wanted = Buffer.from(expected);
   return supplied.length === wanted.length && timingSafeEqual(supplied, wanted);
 }
@@ -269,18 +277,35 @@ async function ringWebhook(ctx: AppContext, req: AppRequest): Promise<AppRespons
 
 const HTML_HEADERS = { 'content-type': 'text/html; charset=utf-8' };
 
-/** Account Link URL. Ring opens this in the user's browser to start linking. */
-async function ringLink(ctx: AppContext): Promise<AppResponse> {
+/** Account Link URL. GET shows the login form; only an authenticated POST starts OAuth. */
+async function ringLink(ctx: AppContext, req: AppRequest): Promise<AppResponse> {
+  if (req.method === 'GET') {
+    return { status: 200, headers: HTML_HEADERS, body: linkPage({ appName: 'CareFlow' }) };
+  }
+
+  const contentType = req.headers['content-type'] ?? '';
+  let formToken: string | undefined;
+  if (contentType.includes('application/x-www-form-urlencoded')) {
+    formToken = new URLSearchParams(req.rawBody.toString('utf8')).get('apiToken') ?? undefined;
+  } else if (contentType.includes('application/json')) {
+    formToken = parseJsonBody<{ apiToken?: string }>(req).apiToken;
+  }
+
+  if (!authorized(req.headers.authorization, ctx.config.apiAuthToken)
+      && !tokenAuthorized(formToken, ctx.config.apiAuthToken)) {
+    return {
+      status: 401,
+      headers: HTML_HEADERS,
+      body: linkPage({ authError: 'A valid CareFlow access token is required.', appName: 'CareFlow' }),
+    };
+  }
+
   const started = await startAccountLink(ctx.config, ctx.store);
   if ('error' in started) {
     ctx.log('account link requested without Ring credentials');
     return { status: 200, headers: HTML_HEADERS, body: linkPage({ error: started.error, appName: 'CareFlow' }) };
   }
-  return {
-    status: 200,
-    headers: HTML_HEADERS,
-    body: linkPage({ authorizeUrl: started.authorizeUrl, appName: 'CareFlow' }),
-  };
+  return { status: 303, headers: { location: started.authorizeUrl }, body: '' };
 }
 
 /** The redirect target. Completes the exchange and shows the user the outcome. */

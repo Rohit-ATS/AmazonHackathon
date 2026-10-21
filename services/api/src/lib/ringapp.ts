@@ -52,7 +52,7 @@ export function ringCredentials(config: Config): RingCredentials | undefined {
  *
  * Generates a PKCE pair and an unguessable `state`, stores them, and sends the browser to
  * Ring's authorize page. The `state` check on the way back is what stops someone handing
- * us an authorization code for *their* Ring account.
+ * us an authorization code unrelated to an authenticated link attempt.
  */
 export async function startAccountLink(
   config: Config,
@@ -136,15 +136,21 @@ export async function completeAccountLink(
  * Styled to match the app: same lime, same near-black, same type.
  */
 export function linkPage(opts: {
-  authorizeUrl?: string;
+  authError?: string;
   error?: string;
   appName: string;
 }): string {
+  const loginForm = `<form method="post" action="/ring/link">
+         <label for="apiToken">CareFlow access token</label>
+         <input id="apiToken" name="apiToken" type="password" autocomplete="current-password" required>
+         <button class="btn" type="submit">Continue to Ring</button>
+       </form>`;
   const body = opts.error
     ? `<p class="error">${escapeHtml(opts.error)}</p>
        <p class="muted">Ask whoever set up this CareFlow deployment to add the Ring client
        credentials, then try again.</p>`
-    : `<p>CareFlow needs permission to see when someone is at your door, so it can tell you
+    : `${opts.authError ? `<p class="error">${escapeHtml(opts.authError)}</p>` : ''}
+       <p>CareFlow needs permission to see when someone is at your door, so it can tell you
          who is there and ask what you would like to do.</p>
        <ul>
          <li><strong>What it can do:</strong> see your devices and their events.</li>
@@ -152,7 +158,7 @@ export function linkPage(opts: {
              video. Ring grants CareFlow read-only access, and CareFlow refuses those
              actions besides.</li>
        </ul>
-       <a class="btn" href="${escapeHtml(opts.authorizeUrl ?? '#')}">Continue to Ring</a>
+       ${loginForm}
        <p class="muted small">You will be asked to sign in to Ring. CareFlow never sees your
           Ring password.</p>`;
 

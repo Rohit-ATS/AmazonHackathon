@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { handleRequest, type AppContext, type AppRequest } from '../src/app.js';
 import type { Config } from '../src/lib/config.js';
+import { Store } from '../src/lib/store.js';
 
 const request = (path: string, authorization?: string, body?: unknown): AppRequest => ({
   method: body === undefined ? 'GET' : 'POST',
@@ -46,6 +47,53 @@ describe('API authentication boundary', () => {
     const result = await handleRequest(context, request('/healthz'));
     expect(result.status).toBe(200);
     expect(result.body).not.toContain('Test');
+  });
+
+  it('does not start Ring account linking from an anonymous GET', async () => {
+    const result = await handleRequest(context, request('/ring/link'));
+    expect(result.status).toBe(200);
+    expect(result.body).toContain('CareFlow access token');
+    expect(result.headers.location).toBeUndefined();
+  });
+
+  it('requires API authentication before starting Ring account linking', async () => {
+    const ringContext = {
+      ...context,
+      config: {
+        ...context.config,
+        ringClientId: 'client-abc',
+        ringClientSecret: 'secret-xyz',
+        ringRedirectUri: 'https://example.invalid/ring/oauth/callback',
+      },
+      store: new Store({ ...context.config, storage: 'local', localStatePath: ':memory:' } as Config),
+    } as AppContext;
+
+    const anonymous = await handleRequest(ringContext, {
+      ...request('/ring/link', undefined, { apiToken: 'wrong' }),
+      headers: { 'content-type': 'application/json' },
+    });
+    expect(anonymous.status).toBe(401);
+
+    expect(anonymous.body).toContain('CareFlow access token');
+
+    const authorizedLink = await handleRequest(ringContext, {
+      method: 'POST',
+      path: '/ring/link',
+      query: {},
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      rawBody: Buffer.from('apiToken=api-test-token'),
+    });
+    expect(authorizedLink.status).toBe(303);
+    expect(new URL(authorizedLink.headers.location!).host).toBe('account.ring.com');
+  });
+
+  it('keeps the Ring OAuth callback public for the provider redirect', async () => {
+    const result = await handleRequest(context, {
+      ...request('/ring/oauth/callback'),
+      query: { code: 'code', state: 'unknown' },
+    });
+    expect(result.status).toBe(400);
+    expect(result.body).not.toContain('valid CareFlow bearer token');
   });
 
   it('accepts MCP approval only through the API-authenticated patient channel', async () => {

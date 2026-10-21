@@ -1,9 +1,8 @@
 /**
  * The Ring Appstore app surface: account linking.
  *
- * The security property that matters here is the `state` check. Without it, anyone can
- * hand our callback an authorization code for *their* Ring account, and we would happily
- * link it — which would mean a patient's CareFlow quietly watching a stranger's doorbell.
+ * Link initiation is authenticated at the HTTP boundary. These tests cover the second
+ * boundary: state and PKCE bind the public callback to the authorized initiation.
  */
 
 import { describe, expect, it } from 'vitest';
