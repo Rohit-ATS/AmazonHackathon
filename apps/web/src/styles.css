@@ -379,7 +379,13 @@ main {
 /* The thread. The only scrolling region on the screen. */
 .chat-log {
   flex: 1;
-  min-height: 12rem;
+  /*
+   * `min-height: 0` is what actually makes this scroll. A flex item defaults to
+   * `min-height: auto`, which refuses to shrink below its content — so `overflow-y` never
+   * engages, the thread grows instead of scrolling, and everything below it (the approval
+   * block, the composer) gets shoved down the page as the conversation lengthens.
+   */
+  min-height: 0;
   overflow-y: auto;
   display: grid;
   align-content: start;
@@ -404,8 +410,22 @@ main {
   margin-top: 0.15rem;
 }
 
-.chat-log .consent {
-  margin-top: 0.3rem;
+/*
+ * The approval block sits between the thread and the composer rather than inside the
+ * thread. Inside, it was one more message that appeared and shifted everything as the log
+ * scrolled; here it is a fixed band in a constant place, which is where something asking
+ * for a decision belongs. It cannot scroll out of view while the patient reads it.
+ */
+.chat .consent {
+  flex: none;
+  animation: consent-in 220ms var(--ease);
+}
+
+@keyframes consent-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
 }
 
 /* The composer: speak, type, or press a button — three ways to say the same thing. */
