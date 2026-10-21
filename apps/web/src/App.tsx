@@ -10,6 +10,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CarePlan, CareSession, SafetyPanel as SafetyPanelData } from '@careflow/shared';
 import { api, ApiError, setApiToken, type Health, type McpPendingApproval } from './lib/api.js';
 import { useLive } from './lib/useLive.js';
+import {
+  isOfflineMode,
+  OFFLINE_CARE_PLAN,
+  OFFLINE_HEALTH,
+  OFFLINE_SAFETY,
+  OFFLINE_SESSIONS,
+  OFFLINE_TIMELINE,
+} from './lib/offlineStub.js';
 import { useVoice } from './lib/useVoice.js';
 import { PatientScreen } from './components/PatientScreen.js';
 import { CaregiverDashboard } from './components/CaregiverDashboard.js';
@@ -74,6 +82,7 @@ export function App() {
   const [authRequired, setAuthRequired] = useState(false);
   const [tokenDraft, setTokenDraft] = useState('');
   const [mcpPending, setMcpPending] = useState<McpPendingApproval[]>([]);
+  const [offline, setOffline] = useState(false);
 
   const [largeTextChoice, chooseLargeText] = usePreference('careflow.largeText');
   const [mutedChoice, chooseMuted] = usePreference('careflow.muted');
@@ -103,6 +112,14 @@ export function App() {
 
   // --- reference data ----------------------------------------------------
   useEffect(() => {
+    if (isOfflineMode()) {
+      setPlan(OFFLINE_CARE_PLAN);
+      setSafety(OFFLINE_SAFETY);
+      setHealth(OFFLINE_HEALTH);
+      setSessions(OFFLINE_SESSIONS);
+      setOffline(true);
+      return;
+    }
     void Promise.allSettled([api.carePlan(), api.safety(), api.health()]).then(
       ([planResult, safetyResult, healthResult]) => {
         if (planResult.status === 'fulfilled') setPlan(planResult.value);
@@ -120,16 +137,17 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (authRequired) return;
+    if (authRequired || offline) return;
     const load = () => void api.pendingMcpActions().then(setMcpPending).catch(() => {});
     load();
     const timer = setInterval(load, 2000);
     return () => clearInterval(timer);
-  }, [authRequired]);
+  }, [authRequired, offline]);
 
   const reloadSessions = useCallback(() => {
+    if (offline) return;
     void api.sessions(10).then(setSessions).catch(() => {});
-  }, []);
+  }, [offline]);
 
   useEffect(() => {
     reloadSessions();
@@ -282,16 +300,18 @@ export function App() {
 
         <div className="header-controls">
           <span
-            className={`badge ${connection === 'live' ? 'ok' : connection === 'polling' ? 'warn' : ''}`}
+            className={`badge ${connection === 'live' ? 'ok' : connection === 'polling' ? 'warn' : offline ? '' : ''}`}
             title={
-              connection === 'live'
-                ? 'Live event stream connected'
-                : connection === 'polling'
-                  ? 'No event stream; polling the API instead'
-                  : 'Connecting'
+              offline
+                ? 'Preview mode — no backend connected'
+                : connection === 'live'
+                  ? 'Live event stream connected'
+                  : connection === 'polling'
+                    ? 'No event stream; polling the API instead'
+                    : 'Connecting'
             }
           >
-            {connection}
+            {offline ? 'preview' : connection}
           </span>
 
           <button
@@ -331,6 +351,12 @@ export function App() {
       </nav>
 
       <main id="main" role="tabpanel" aria-labelledby={`tab-${tab}`} tabIndex={-1}>
+        {offline && (
+          <section className="notice info" role="status" style={{ textAlign: 'center' }}>
+            <strong>Preview mode</strong> — this is the CareFlow interface with sample data.
+            Connect a backend API to enable live conversations, Ring integration, and voice.
+          </section>
+        )}
         {mcpPending.map((item) => (
           <section className="consent mcp-consent" aria-label="Companion approval" key={item.confirmationId}>
             <div className="consent-label">Your companion is asking for approval</div>
@@ -369,18 +395,20 @@ export function App() {
           />
         )}
 
-        {tab === 'timeline' && <Timeline timeline={timeline} session={session} />}
+        {tab === 'timeline' && <Timeline timeline={offline ? OFFLINE_TIMELINE : timeline} session={session} />}
 
         {tab === 'safety' && <SafetyPanel safety={safety} health={health} />}
 
-        <DemoStrip
-          busy={busy}
-          onFired={() => {
-            void refresh().catch(() => {});
-            reloadSessions();
-            setTab('patient');
-          }}
-        />
+        {!offline && (
+          <DemoStrip
+            busy={busy}
+            onFired={() => {
+              void refresh().catch(() => {});
+              reloadSessions();
+              setTab('patient');
+            }}
+          />
+        )}
       </main>
     </div>
   );
