@@ -39,8 +39,8 @@ interface Props {
  * How far from the pointer an item still reacts, and how much it grows at the centre.
  * Scaled gently so items stay comfortably inside the dock container without clipping.
  */
-const DISTANCE = 100;
-const MAGNIFY = 0.08;
+const DISTANCE = 80;
+const MAGNIFY = 0.04;
 
 export function Dock({ items, activeId, onSelect, label, controls }: Props) {
   const barRef = useRef<HTMLDivElement>(null);
