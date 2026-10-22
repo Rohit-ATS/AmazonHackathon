@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light" />
+    <title>CareFlow · Page not found (404)</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --lime: #d9f550;
+        --ink: #0c0d0c;
+        --paper: #ffffff;
+        --mist: #f2f3ee;
+        --mist-2: #e7e9e0;
+        --line: #e2e4da;
+        --text: #0c0d0c;
+        --text-muted: #63675c;
+        --r-sm: 10px;
+        --r: 16px;
+        --pill: 999px;
+        --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+        background: var(--paper);
+        color: var(--text);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.1rem clamp(1rem, 4vw, 2.5rem);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        font-weight: 700;
+        font-size: 1.1rem;
+        text-decoration: none;
+        color: var(--ink);
+      }
+
+      .brand-dot {
+        width: 1.95rem;
+        height: 1.95rem;
+        border-radius: var(--r-sm);
+        background: var(--lime);
+        display: grid;
+        place-items: center;
+        font-size: 0.72rem;
+        font-weight: 800;
+        color: var(--ink);
+        letter-spacing: -0.02em;
+        flex: none;
+      }
+
+      .brand small {
+        font-weight: 450;
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        display: block;
+      }
+
+      main {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1.25rem 4rem;
+      }
+
+      .card {
+        background: var(--mist);
+        border: 1px solid var(--line);
+        border-radius: var(--r);
+        padding: clamp(2rem, 5vw, 3.25rem) clamp(1.5rem, 4vw, 2.75rem);
+        max-width: 32rem;
+        width: 100%;
+        text-align: center;
+        box-shadow: 0 4px 20px rgb(12 13 12 / 4%);
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.3rem 0.85rem;
+        border-radius: var(--pill);
+        background: var(--paper);
+        border: 1px solid var(--line);
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        margin-bottom: 1.25rem;
+      }
+
+      h1 {
+        font-size: clamp(1.75rem, 4vw, 2.25rem);
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1.15;
+        margin-bottom: 0.85rem;
+        color: var(--ink);
+      }
+
+      p {
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        line-height: 1.55;
+        margin-bottom: 1.75rem;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.8rem 1.6rem;
+        border-radius: var(--pill);
+        font-size: 0.95rem;
+        font-weight: 700;
+        text-decoration: none;
+        background: var(--lime);
+        color: var(--ink);
+        border: 1px solid transparent;
+        transition: transform 160ms var(--ease), filter 160ms var(--ease);
+        cursor: pointer;
+      }
+
+      .btn:hover {
+        transform: translateY(-1px);
+        filter: brightness(0.96);
+      }
+
+      .btn:active {
+        transform: translateY(0);
+      }
+
+      footer {
+        text-align: center;
+        padding: 1rem;
+        color: var(--text-muted);
+        font-size: 0.78rem;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a class="brand" id="brand-link" href="./">
+        <span class="brand-dot" aria-hidden="true">CF</span>
+        <div>
+          CareFlow
+          <small>Voice-first care access with Ring</small>
+        </div>
+      </a>
+    </header>
+
+    <main>
+      <div class="card">
+        <span class="badge">Error 404</span>
+        <h1>Nothing at this address</h1>
+        <p>
+          The page you are looking for does not exist or may have been moved.
+          CareFlow’s conversation and caregiver dashboard live on the main screen.
+        </p>
+        <a class="btn" id="home-link" href="./">
+          Return to CareFlow →
+        </a>
+      </div>
+    </main>
+
+    <footer>CareFlow · Amazon Bedrock &amp; Ring Care Integration</footer>
+
+    <script>
+      (function () {
+        // Smart path resolution for GitHub Pages (/AmazonHackathon/) and custom domains
+        var segments = window.location.pathname.split('/').filter(Boolean);
+        var target = './';
+        if (window.location.hostname.endsWith('github.io') && segments.length > 0) {
+          target = '/' + segments[0] + '/';
+        } else if (segments.length > 0) {
+          target = '/';
+        }
+        var home = document.getElementById('home-link');
+        var brand = document.getElementById('brand-link');
+        if (home) home.setAttribute('href', target);
+        if (brand) brand.setAttribute('href', target);
+      })();
+    </script>
+  </body>
+</html>
