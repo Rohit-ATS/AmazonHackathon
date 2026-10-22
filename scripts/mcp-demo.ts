@@ -11,7 +11,7 @@
 
 import { COMPANION_INSTRUCTIONS } from '../services/api/src/mcp/index.js';
 
-const base = process.env.CAREFLOW_API ?? 'http://localhost:8787';
+const base = process.env.CAREFLOW_API ?? 'http://127.0.0.1:8787';
 const endpoint = new URL('/mcp', base).toString();
 const PROTOCOL = '2025-11-25';
 const mcpToken = process.env.CAREFLOW_MCP_TOKEN;

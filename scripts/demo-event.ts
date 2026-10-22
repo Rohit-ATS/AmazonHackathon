@@ -13,7 +13,7 @@
 import { buildScenario, deliverSignedPayload, type SimulatedScenario } from '@careflow/ring';
 
 const scenario = (process.argv[2] ?? 'scheduled') as SimulatedScenario;
-const base = process.env.CAREFLOW_API ?? 'http://localhost:8787';
+const base = process.env.CAREFLOW_API ?? 'http://127.0.0.1:8787';
 const hmacKey = process.env.RING_HMAC_KEY ?? 'careflow-local-dev-hmac-key-do-not-use-in-production';
 const deviceId = process.env.CAREFLOW_DEVICE_ID ?? 'front-door-001';
 

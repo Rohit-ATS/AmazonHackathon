@@ -11,7 +11,7 @@
 import { buildRingPayload, deliverSignedPayload, signBody } from '@careflow/ring';
 import type { CareSession, TimelineEntry } from '@careflow/shared';
 
-const base = process.env.CAREFLOW_API ?? 'http://localhost:8787';
+const base = process.env.CAREFLOW_API ?? 'http://127.0.0.1:8787';
 const hmacKey = process.env.RING_HMAC_KEY ?? 'careflow-local-dev-hmac-key-do-not-use-in-production';
 const apiToken = process.env.CAREFLOW_API_TOKEN;
 

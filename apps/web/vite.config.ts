@@ -19,10 +19,10 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': { target: 'http://localhost:8787', changeOrigin: true },
-      '/events': { target: 'http://localhost:8787', changeOrigin: true, ws: false },
-      '/healthz': { target: 'http://localhost:8787', changeOrigin: true },
-      '/ring': { target: 'http://localhost:8787', changeOrigin: true },
+      '/api': { target: 'http://127.0.0.1:8787', changeOrigin: true },
+      '/events': { target: 'http://127.0.0.1:8787', changeOrigin: true, ws: false },
+      '/healthz': { target: 'http://127.0.0.1:8787', changeOrigin: true },
+      '/ring': { target: 'http://127.0.0.1:8787', changeOrigin: true },
     },
   },
 });

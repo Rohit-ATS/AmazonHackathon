@@ -10,14 +10,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { handleRequest, type AppRequest } from './app.js';
 import { getRuntime } from './context.js';
 import { timingSafeEqual } from 'node:crypto';
-
-const CORS = {
-  // Dev only: the Vite frontend runs on another port, and locking this down would mean
-  // Lee cannot build anything. The deployed stack sets an explicit origin instead.
-  'access-control-allow-origin': '*',
-  'access-control-allow-headers': 'authorization,content-type,x-signature,x-careflow-simulated',
-  'access-control-allow-methods': 'GET,POST,OPTIONS',
-};
+import { assertSafeLocalServerConfig, corsHeaders } from './lib/local-server-security.js';
 
 async function readBody(req: IncomingMessage): Promise<Buffer> {
   const chunks: Buffer[] = [];
@@ -34,23 +27,33 @@ async function readBody(req: IncomingMessage): Promise<Buffer> {
 }
 
 const runtime = await getRuntime();
+assertSafeLocalServerConfig(runtime.config);
 
 const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
+  const cors = corsHeaders(req.headers.origin, runtime.config.webAppUrl);
+
+  // Do this before body parsing or routing: omitting ACAO prevents reading a response, but
+  // it does not stop a browser from sending a simple cross-origin state-changing request.
+  if (req.headers.origin && !cors['access-control-allow-origin']) {
+    res.writeHead(403, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: { code: 'origin_not_allowed', message: 'Origin not allowed.' } }));
+    return;
+  }
 
   if (req.method === 'OPTIONS') {
-    res.writeHead(204, CORS).end();
+    res.writeHead(204, cors).end();
     return;
   }
 
   // Server-sent events: the live feed the patient screen and dashboard both read.
   if (req.method === 'GET' && url.pathname === '/events/stream') {
     if (!authorized(req.headers.authorization, runtime.config.apiAuthToken)) {
-      res.writeHead(401, { ...CORS, 'content-type': 'application/json' });
+      res.writeHead(401, { ...cors, 'content-type': 'application/json' });
       res.end(JSON.stringify({ error: { code: 'unauthorized', message: 'A valid CareFlow bearer token is required.' } }));
       return;
     }
-    streamEvents(url, res);
+    streamEvents(url, res, cors);
     return;
   }
 
@@ -58,7 +61,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   try {
     rawBody = await readBody(req);
   } catch {
-    res.writeHead(413, { ...CORS, 'content-type': 'application/json' });
+    res.writeHead(413, { ...cors, 'content-type': 'application/json' });
     res.end(JSON.stringify({ error: { code: 'payload_too_large', message: 'Body too large.' } }));
     return;
   }
@@ -72,7 +75,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   };
 
   const result = await handleRequest(runtime, appReq);
-  res.writeHead(result.status, { ...CORS, ...result.headers });
+  res.writeHead(result.status, { ...cors, ...result.headers });
   res.end(result.body);
 });
 
@@ -84,9 +87,9 @@ function authorized(header: string | undefined, expected: string | undefined): b
   return actual.length === wanted.length && timingSafeEqual(actual, wanted);
 }
 
-function streamEvents(url: URL, res: ServerResponse) {
+function streamEvents(url: URL, res: ServerResponse, cors: Record<string, string>) {
   res.writeHead(200, {
-    ...CORS,
+    ...cors,
     'content-type': 'text/event-stream',
     'cache-control': 'no-cache, no-transform',
     connection: 'keep-alive',
@@ -117,10 +120,10 @@ function streamEvents(url: URL, res: ServerResponse) {
   });
 }
 
-server.listen(runtime.config.port, () => {
+server.listen(runtime.config.port, runtime.config.host, () => {
   const { config, carePlan } = runtime;
   console.log(`
-CareFlow API listening on http://localhost:${config.port}
+CareFlow API listening on http://${config.host}:${config.port}
 
   storage       ${config.storage}${config.storage === 'local' ? ` (${config.localStatePath})` : ` (${config.tableName})`}
   voice         ${config.tts}${config.tts === 'polly' ? ` (${config.pollyVoiceId})` : ' (browser speech synthesis)'}

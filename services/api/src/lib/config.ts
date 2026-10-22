@@ -12,6 +12,8 @@ export type TtsMode = 'polly' | 'browser';
 
 export interface Config {
   port: number;
+  /** Interface used by the local Node server. Credential-free mode is loopback-only. */
+  host: string;
   /** Public base URL of this API, used when building the simulator's delivery target. */
   selfUrl: string;
   /**
@@ -64,7 +66,8 @@ export function loadConfig(): Config {
 
   const config: Config = {
     port,
-    selfUrl: env('CAREFLOW_SELF_URL') ?? `http://localhost:${port}`,
+    host: env('HOST') ?? '127.0.0.1',
+    selfUrl: env('CAREFLOW_SELF_URL') ?? `http://127.0.0.1:${port}`,
     webAppUrl: env('CAREFLOW_WEB_URL') ?? 'http://localhost:5173',
     storage,
     tableName,
@@ -73,7 +76,7 @@ export function loadConfig(): Config {
     pollyVoiceId: env('POLLY_VOICE_ID') ?? 'Joanna',
     awsRegion: env('AWS_REGION') ?? 'us-east-1',
     ringHmacKey: hmacKey,
-    ringRedirectUri: env('RING_REDIRECT_URI') ?? `http://localhost:${port}/ring/oauth/callback`,
+    ringRedirectUri: env('RING_REDIRECT_URI') ?? `http://127.0.0.1:${port}/ring/oauth/callback`,
     requireSignatureVerification: true,
     demoMode: env('CAREFLOW_DEMO_MODE') !== 'false',
   };
